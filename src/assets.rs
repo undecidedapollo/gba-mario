@@ -1,0 +1,109 @@
+use core::ptr::copy_nonoverlapping;
+
+use gba::{
+    Align4, include_aligned_bytes,
+    mmio::{BG_PALETTE, CHARBLOCK0_8BPP, OBJ_ATTR_ALL, OBJ_PALETTE, TEXT_SCREENBLOCKS},
+    prelude::{ObjAttr, ObjDisplayStyle},
+    video::Color,
+};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
+pub static SHARED_PALETTE: Align4<[u8; 16]> = include_aligned_bytes!("../asset_out/shared.palette");
+
+pub static BACKGROUND_TILES: Align4<[u8; 8192]> =
+    include_aligned_bytes!("../asset_out/tileset.sprite");
+
+#[derive(IntoPrimitive, Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
+#[repr(u8)]
+pub enum AssetBgTile {
+    BrickTop_UpLeft = 0,
+    BrickTop_UpRight = 1,
+    BrickTop_DownLeft = 16,
+    BrickTop_DownRight = 17,
+}
+
+impl Into<usize> for AssetBgTile {
+    fn into(self) -> usize {
+        return self as usize;
+    }
+}
+impl Into<u16> for AssetBgTile {
+    fn into(self) -> u16 {
+        return self as u16;
+    }
+}
+
+pub fn zero_screenblock(frame: usize) {
+    // Zero out the screenblock
+    let zeros: [u32; 32] = core::array::repeat(0);
+    for i in 0..16 {
+        unsafe {
+            copy_nonoverlapping(
+                zeros.as_ptr(),
+                TEXT_SCREENBLOCKS
+                    .get_frame(frame)
+                    .unwrap()
+                    .get_row(i * 2)
+                    .unwrap()
+                    .as_usize() as *mut u32,
+                zeros.len(),
+            );
+        }
+    }
+}
+
+pub fn reset_data() {
+    let mut ottr = ObjAttr::new();
+    ottr.0 = ottr.0.with_style(ObjDisplayStyle::NotDisplayed);
+    OBJ_ATTR_ALL.iter().for_each(|va| va.write(ottr));
+
+    // zero_screenblock(0);
+    // zero_screenblock(1);
+    // zero_screenblock(2);
+    // zero_screenblock(3);
+
+    // let zeros: [u32; 32] = core::array::repeat(0);
+
+    // Make the zero-th tile transparent
+    unsafe {
+        // copy_nonoverlapping(
+        //     zeros.as_ptr(),
+        //     CHARBLOCK0_8BPP.index(0).as_usize() as *mut u32,
+        //     16,
+        // );
+        copy_nonoverlapping(
+            SHARED_PALETTE.0.as_ptr(),
+            OBJ_PALETTE.as_usize() as *mut u8,
+            SHARED_PALETTE.0.len(),
+        );
+        copy_nonoverlapping(
+            SHARED_PALETTE.0.as_ptr(),
+            BG_PALETTE.as_usize() as *mut u8,
+            SHARED_PALETTE.0.len(),
+        );
+        let colors: [gba::video::Color; 16] = [
+            crate::color::TRANSPARENT, // Can't be accessed by the mapping function being used
+            crate::color::WHITE,
+            crate::color::RED,
+            crate::color::GREEN,
+            crate::color::BLUE,
+            crate::color::YELLOW,
+            crate::color::CYAN,
+            crate::color::MAGENTA,
+            crate::color::ORANGE,
+            crate::color::PURPLE,
+            crate::color::PINK,
+            crate::color::BROWN,
+            crate::color::GRAY,
+            crate::color::LIGHT_GRAY,
+            crate::color::DARK_GREEN,
+            crate::color::BLACK,
+        ];
+        copy_nonoverlapping(
+            colors.as_ptr(),
+            BG_PALETTE.index(16 * 15).as_usize() as *mut Color,
+            colors.len(),
+        );
+        // Cga8x8Thick.bitunpack_8bpp(CHARBLOCK1_8BPP.as_region(), 0);
+    }
+}
