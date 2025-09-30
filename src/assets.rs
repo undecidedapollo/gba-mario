@@ -8,10 +8,12 @@ use gba::{
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-pub static SHARED_PALETTE: Align4<[u8; 16]> = include_aligned_bytes!("../asset_out/shared.palette");
+pub static SHARED_PALETTE: Align4<[u8; 24]> = include_aligned_bytes!("../asset_out/shared.palette");
 
 pub static BACKGROUND_TILES: Align4<[u8; 8192]> =
     include_aligned_bytes!("../asset_out/tileset.sprite");
+pub static COIN_TILE: Align4<[u8; 256]> = include_aligned_bytes!("../asset_out/coin.sprite");
+pub static MARIO_TILE: Align4<[u8; 2048]> = include_aligned_bytes!("../asset_out/mario.sprite");
 
 #[derive(IntoPrimitive, Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
 #[repr(u8)]

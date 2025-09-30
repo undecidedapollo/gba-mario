@@ -30,6 +30,10 @@ pub fn divisible_by_num(x: u16, power: Powers) -> bool {
     (x >> power << power) == x
 }
 
+pub fn mod_mask_u32(x: u32, power: Powers) -> u32 {
+    x & masks::POWERS[power.as_u16() as usize] as u32
+}
+
 pub mod masks {
     pub const POWERS: [u8; 9] = [
         0b0000_0000,
