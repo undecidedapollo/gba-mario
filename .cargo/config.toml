@@ -11,3 +11,4 @@ runner = "/Applications/mGBA.app/Contents/MacOS/mGBA"
 [alias]
 gba-build = "build --target thumbv4t-none-eabi --release"
 gba-run = "run --target thumbv4t-none-eabi --release"
+gba-run-dbg = "run --target thumbv4t-none-eabi"

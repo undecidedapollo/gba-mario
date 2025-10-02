@@ -23,8 +23,6 @@ checksum = "3995eaeebcdf32f91f980d360f78732ddc061097ab4e39991ae7a6ace9194677"
 [[package]]
 name = "gba"
 version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dff72a04df599de9991069ab6807f00e02dc24840e13d16f92dfa2929c4e6950"
 dependencies = [
  "bitfrob",
  "bracer",

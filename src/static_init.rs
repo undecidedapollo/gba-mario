@@ -16,7 +16,7 @@ pub unsafe trait StaticInitSafe {
 }
 
 /// Wrapper for safely managing single-init access to static data.
-pub struct StaticCell<T: StaticInitSafe> {
+pub struct StaticCell<T: StaticInitSafe + 'static> {
     has_init: GbaCell<bool>,
     ptr: *mut T,
 }
@@ -30,7 +30,7 @@ impl<T: StaticInitSafe> StaticCell<T> {
     }
 
     #[track_caller]
-    pub fn init(&self) -> &'static mut T {
+    pub fn init(&self) -> &mut T {
         if self.has_init.read() {
             panic!("Multiple inits of static");
         }
@@ -43,14 +43,20 @@ impl<T: StaticInitSafe> StaticCell<T> {
 
     /// Get a reference if already initialized, panics otherwise
     #[track_caller]
-    pub fn get(&self) -> &'static mut T {
+    pub fn get(&self) -> &mut T {
         if !self.has_init.read() {
             panic!("Accessing uninitialized static");
         }
         unsafe { &mut *self.ptr }
     }
 
-    pub fn get_or_init(&self) -> &'static mut T {
+    /// Get a reference no matter what, good luck
+    #[track_caller]
+    pub fn assume_init(&self) -> &mut T {
+        unsafe { &mut *self.ptr }
+    }
+
+    pub fn get_or_init(&self) -> &mut T {
         if self.is_init() {
             self.get()
         } else {

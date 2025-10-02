@@ -41,6 +41,10 @@ impl ScreenManager {
         }
     }
 
+    pub fn init() {
+        Screen.init();
+    }
+
     fn reset_internal(&mut self) {}
 
     pub fn get_screen_info() -> ScreenInfo {

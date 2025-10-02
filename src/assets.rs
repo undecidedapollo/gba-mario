@@ -15,6 +15,9 @@ pub static BACKGROUND_TILES: Align4<[u8; 8192]> =
 pub static COIN_TILE: Align4<[u8; 256]> = include_aligned_bytes!("../asset_out/coin.sprite");
 pub static MARIO_TILE: Align4<[u8; 2048]> = include_aligned_bytes!("../asset_out/mario.sprite");
 
+pub const COIN_TILE_IDX_START: usize = 1;
+pub const MARIO_TILE_IDX_START: usize = COIN_TILE_IDX_START + COIN_TILE.0.len() / 64;
+
 #[derive(IntoPrimitive, Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
 #[repr(u8)]
 pub enum AssetBgTile {

@@ -9,6 +9,7 @@ pub mod keys;
 pub mod level;
 pub mod logger;
 pub mod math;
+pub mod obj;
 pub mod player;
 pub mod rng;
 pub mod score;

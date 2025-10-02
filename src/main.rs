@@ -5,10 +5,15 @@
 use core::{fmt::Write, ptr::copy_nonoverlapping};
 use gba::prelude::*;
 use mario::{
-    assets::{self, BACKGROUND_TILES, COIN_TILE, MARIO_TILE, zero_screenblock},
+    assets::{
+        self, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START, MARIO_TILE, MARIO_TILE_IDX_START,
+        zero_screenblock,
+    },
+    gba_warning,
     keys::FRAME_KEYS,
     level::LevelManager,
     logger,
+    player::PlayerManager,
     score::ScoreManager,
     screen::ScreenManager,
     tick::TickContext,
@@ -60,83 +65,23 @@ extern "C" fn main() -> ! {
     );
 
     assets::reset_data();
-
-    zero_screenblock(0);
-    zero_screenblock(1);
-    zero_screenblock(2);
-    zero_screenblock(3);
-    zero_screenblock(4);
-    zero_screenblock(5);
-    zero_screenblock(6);
-    zero_screenblock(7);
-    zero_screenblock(8);
-
-    let coin_idx = 1;
-    let mario_idx = coin_idx + COIN_TILE.0.len() / 64;
+    ScreenManager::init();
+    PlayerManager::init();
+    LevelManager::init();
+    PlayerManager::on_start();
 
     unsafe {
         copy_nonoverlapping(
             BACKGROUND_TILES.0.as_ptr(),
-            CHARBLOCK0_8BPP.index(coin_idx).as_usize() as *mut u8,
+            CHARBLOCK0_8BPP.index(1).as_usize() as *mut u8,
             BACKGROUND_TILES.0.len(),
         );
         copy_nonoverlapping(
             COIN_TILE.0.as_ptr(),
-            OBJ_TILES.index(1).as_usize() as *mut u8,
+            OBJ_TILES.index(COIN_TILE_IDX_START * 2).as_usize() as *mut u8,
             COIN_TILE.0.len(),
         );
-        copy_nonoverlapping(
-            MARIO_TILE.0.as_ptr(),
-            OBJ_TILES.index(mario_idx).as_usize() as *mut u8,
-            MARIO_TILE.0.len(),
-        );
     }
-
-    // for i in 0..2 {
-    //     let base = i * 2 + 12;
-    //     AFFINE2_SCREENBLOCKS
-    //         .get_frame(16)
-    //         .unwrap()
-    //         .index(0, base)
-    //         .write(u8x2::default().with_high(1).with_low(2));
-    //     AFFINE2_SCREENBLOCKS
-    //         .get_frame(16)
-    //         .unwrap()
-    //         .index(0, base + 1)
-    //         .write(u8x2::default().with_high(17).with_low(18));
-
-    //     for i in 0..31 {
-    //         AFFINE2_SCREENBLOCKS
-    //             .get_frame(16)
-    //             .unwrap()
-    //             .index(1 + i, base)
-    //             .write(u8x2::default().with_high(3).with_low(4));
-    //         AFFINE2_SCREENBLOCKS
-    //             .get_frame(16)
-    //             .unwrap()
-    //             .index(1 + i, base + 1)
-    //             .write(u8x2::default().with_high(19).with_low(20));
-    //     }
-    // }
-
-    // Obj
-    let mut otr = ObjAttr::new();
-    otr.set_x(32);
-    otr.set_y(64);
-    otr.set_tile_id(mario_idx as u16);
-    otr.set_style(ObjDisplayStyle::Affine);
-    otr.0 = otr
-        .0
-        .with_shape(ObjShape::Square)
-        .with_mode(ObjEffectMode::Normal)
-        .with_bpp8(true);
-    otr.1 = otr.1.with_size(1).with_affine_index(0);
-    OBJ_ATTR_ALL.index(0).write(otr);
-
-    AFFINE_PARAM_A.index(0).write(i16fx8::from_bits(1 << 8));
-    AFFINE_PARAM_B.index(0).write(i16fx8::from_bits(0));
-    AFFINE_PARAM_C.index(0).write(i16fx8::from_bits(0));
-    AFFINE_PARAM_D.index(0).write(i16fx8::from_bits(1 << 8));
 
     let mut loop_counter: u32 = 0;
 
@@ -155,34 +100,15 @@ extern "C" fn main() -> ! {
             tick_count: loop_counter,
         };
         loop_counter = loop_counter.wrapping_add(1);
-        let new_x = orig_x.div(i16fx8::from_bits(val as i16));
-        let new_y = orig_y.div(i16fx8::from_bits(val as i16));
+        // let new_x = orig_x.div(i16fx8::from_bits(val as i16));
+        // let new_y = orig_y.div(i16fx8::from_bits(val as i16));
 
-        otr.set_x(new_x.to_bits() as u16 >> 8);
-        otr.set_y(new_y.to_bits() as u16 >> 8);
-        OBJ_ATTR_ALL.index(0).write(otr);
+        // otr.set_x(new_x.to_bits() as u16 >> 8);
+        // otr.set_y(new_y.to_bits() as u16 >> 8);
+        // OBJ_ATTR_ALL.index(0).write(otr);
 
         VBlankIntrWait();
 
-        if dir {
-            val += 2;
-            if val >= max {
-                val = max;
-                dir = !dir;
-                for _ in 0..60 {
-                    VBlankIntrWait();
-                }
-            }
-        } else {
-            val -= 2;
-            if val <= min {
-                val = min;
-                dir = !dir;
-                for _ in 0..60 {
-                    VBlankIntrWait();
-                }
-            }
-        }
         // BG2PA.write(i16fx8::from_bits(val as i16));
         // BG2PB.write(i16fx8::default());
         // BG2PC.write(i16fx8::default());
@@ -192,6 +118,7 @@ extern "C" fn main() -> ! {
         // AFFINE_PARAM_C.index(0).write(i16fx8::from_bits(0));
         // AFFINE_PARAM_D.index(0).write(i16fx8::from_bits(val as i16));
         LevelManager::tick(tick_ctx);
+        PlayerManager::tick();
         ScoreManager::tick();
         ScreenManager::post_tick();
     }
