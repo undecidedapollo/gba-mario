@@ -1,8 +1,7 @@
-use core::fmt::Write;
 
 use gba::{
     fixed::i32fx8,
-    mmio::{BG2X, BG2Y},
+    mmio::BG2X,
 };
 
 use crate::{ewram_static, static_init::StaticInitSafe};

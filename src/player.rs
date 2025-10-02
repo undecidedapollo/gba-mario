@@ -4,7 +4,7 @@ use gba::prelude::*;
 
 use crate::{
     assets::{MARIO_TILE, MARIO_TILE_IDX_START},
-    ewram_static, gba_warning,
+    ewram_static,
     keys::FRAME_KEYS,
     level::LevelManager,
     obj::VolAddressExt,

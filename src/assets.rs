@@ -2,11 +2,10 @@ use core::ptr::copy_nonoverlapping;
 
 use gba::{
     Align4, include_aligned_bytes,
-    mmio::{BG_PALETTE, CHARBLOCK0_8BPP, OBJ_ATTR_ALL, OBJ_PALETTE, TEXT_SCREENBLOCKS},
+    mmio::{BG_PALETTE, OBJ_ATTR_ALL, OBJ_PALETTE, TEXT_SCREENBLOCKS},
     prelude::{ObjAttr, ObjDisplayStyle},
     video::Color,
 };
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 pub static SHARED_PALETTE: Align4<[u8; 24]> = include_aligned_bytes!("../asset_out/shared.palette");
 
@@ -17,26 +16,6 @@ pub static MARIO_TILE: Align4<[u8; 2048]> = include_aligned_bytes!("../asset_out
 
 pub const COIN_TILE_IDX_START: usize = 1;
 pub const MARIO_TILE_IDX_START: usize = COIN_TILE_IDX_START + COIN_TILE.0.len() / 64;
-
-#[derive(IntoPrimitive, Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
-#[repr(u8)]
-pub enum AssetBgTile {
-    BrickTop_UpLeft = 0,
-    BrickTop_UpRight = 1,
-    BrickTop_DownLeft = 16,
-    BrickTop_DownRight = 17,
-}
-
-impl Into<usize> for AssetBgTile {
-    fn into(self) -> usize {
-        return self as usize;
-    }
-}
-impl Into<u16> for AssetBgTile {
-    fn into(self) -> u16 {
-        return self as u16;
-    }
-}
 
 pub fn zero_screenblock(frame: usize) {
     // Zero out the screenblock

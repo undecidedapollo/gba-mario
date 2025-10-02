@@ -1,10 +1,9 @@
-use core::fmt::Write;
 
 use gba::prelude::*;
 
 use crate::{
     ewram_static, gba_warning,
-    math::{Powers, masks::POWERS, mod_mask_u32},
+    math::{Powers, mod_mask_u32},
     screen::ScreenManager,
     static_init::StaticInitSafe,
     tick::TickContext,

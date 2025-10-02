@@ -5,11 +5,7 @@
 use core::{fmt::Write, ptr::copy_nonoverlapping};
 use gba::prelude::*;
 use mario::{
-    assets::{
-        self, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START, MARIO_TILE, MARIO_TILE_IDX_START,
-        zero_screenblock,
-    },
-    gba_warning,
+    assets::{self, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START},
     keys::FRAME_KEYS,
     level::LevelManager,
     logger,
@@ -84,16 +80,6 @@ extern "C" fn main() -> ! {
     }
 
     let mut loop_counter: u32 = 0;
-
-    let min = 1 << 7;
-    let max = 1 << 9;
-
-    let mut dir = true;
-
-    let mut val: u16 = 1 << 8;
-
-    let orig_x = i16fx8::wrapping_from(32);
-    let orig_y = i16fx8::wrapping_from(64);
 
     loop {
         let tick_ctx = TickContext {
