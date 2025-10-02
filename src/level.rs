@@ -1,4 +1,3 @@
-
 use gba::prelude::*;
 
 use crate::{
@@ -74,7 +73,20 @@ impl LevelManager {
                 continue;
             }
 
-            gba_warning!("Rendering column {} actual {}", i, screenblock_col);
+            if screenblock_col > 14 && screenblock_col < 18 {
+                AFFINE2_SCREENBLOCKS
+                    .get_frame(16)
+                    .unwrap()
+                    .index(screenblock_col, 10)
+                    .write(u8x2::default().with_high(1).with_low(2));
+                AFFINE2_SCREENBLOCKS
+                    .get_frame(16)
+                    .unwrap()
+                    .index(screenblock_col, 11)
+                    .write(u8x2::default().with_high(17).with_low(18));
+            }
+
+            // gba_warning!("Rendering column {} actual {}", i, screenblock_col);
             AFFINE2_SCREENBLOCKS
                 .get_frame(16)
                 .unwrap()
@@ -99,7 +111,7 @@ impl LevelManager {
         self.rendered_col = render_end;
         for i in self.reaped_col..reap {
             let screenblock_col = mod_mask_u32(i as u32, Powers::_32) as usize;
-            gba_warning!("Reaping column {} actual {}", i, screenblock_col);
+            // gba_warning!("Reaping column {} actual {}", i, screenblock_col);
             for i in 0..32 {
                 AFFINE2_SCREENBLOCKS
                     .get_frame(16)

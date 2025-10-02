@@ -104,7 +104,7 @@ extern "C" fn main() -> ! {
         // AFFINE_PARAM_C.index(0).write(i16fx8::from_bits(0));
         // AFFINE_PARAM_D.index(0).write(i16fx8::from_bits(val as i16));
         LevelManager::tick(tick_ctx);
-        PlayerManager::tick();
+        PlayerManager::tick(tick_ctx);
         ScoreManager::tick();
         ScreenManager::post_tick();
     }

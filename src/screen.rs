@@ -1,7 +1,6 @@
-
 use gba::{
     fixed::i32fx8,
-    mmio::BG2X,
+    mmio::{BG2X, BG2Y},
 };
 
 use crate::{ewram_static, static_init::StaticInitSafe};
@@ -61,10 +60,16 @@ impl ScreenManager {
         screen.affn_x = screen.affn_x.add(amount);
     }
 
+    pub fn translate(x: i32fx8, y: i32fx8) {
+        let screen = Screen.get_or_init();
+        screen.affn_x = screen.affn_x.add(x);
+        screen.affn_y = screen.affn_y.add(y);
+    }
+
     pub fn post_tick() {
         let manager = Screen.get_or_init();
         // manager.affn_y = manager.affn_y.add(i32fx8::from_bits(8));
         BG2X.write(manager.affn_x);
-        // BG2Y.write(manager.affn_y);
+        BG2Y.write(manager.affn_y);
     }
 }
