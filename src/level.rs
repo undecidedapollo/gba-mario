@@ -77,12 +77,12 @@ impl LevelManager {
                 AFFINE2_SCREENBLOCKS
                     .get_frame(16)
                     .unwrap()
-                    .index(screenblock_col, 10)
+                    .index(screenblock_col, 8)
                     .write(u8x2::default().with_high(1).with_low(2));
                 AFFINE2_SCREENBLOCKS
                     .get_frame(16)
                     .unwrap()
-                    .index(screenblock_col, 11)
+                    .index(screenblock_col, 9)
                     .write(u8x2::default().with_high(17).with_low(18));
             }
 

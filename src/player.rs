@@ -46,6 +46,10 @@ enum MarioAnimationTileIdx {
     SlidePole = 7 * 4,
 }
 
+// We fall faster down then up
+const VERT_DIFF_UP: i32fx8 = i32fx8::from_bits(64);
+const VERT_DIFF_DOWN: i32fx8 = i32fx8::from_bits(128);
+
 impl PlayerManager {
     pub const fn new() -> Self {
         PlayerManager {
@@ -57,6 +61,30 @@ impl PlayerManager {
             player_y: i32fx8::wrapping_from(32),
             vel_y: i32fx8::wrapping_from(0),
         }
+    }
+
+    fn is_moving_left(&self) -> bool {
+        self.vel_x < i32fx8::wrapping_from(0)
+    }
+
+    fn is_moving_right(&self) -> bool {
+        self.vel_x > i32fx8::wrapping_from(0)
+    }
+
+    fn is_horizontally_stationary(&self) -> bool {
+        self.vel_x == i32fx8::wrapping_from(0)
+    }
+
+    fn is_vertically_stationary(&self) -> bool {
+        self.vel_y == i32fx8::wrapping_from(0)
+    }
+
+    fn is_moving_up(&self) -> bool {
+        self.vel_y < i32fx8::wrapping_from(0)
+    }
+
+    fn is_moving_down(&self) -> bool {
+        self.vel_y > i32fx8::wrapping_from(0)
     }
 
     fn set_tile(&mut self, tile: MarioAnimationTileIdx) {
@@ -141,34 +169,47 @@ impl PlayerManager {
         let standable = LevelManager::is_standable(row + 2, col >> 1);
         let is_new_direction_opposite_cur_dir = keys.left() && manager.vel_x > i32fx8::default()
             || keys.right() && manager.vel_x < i32fx8::default();
+
         if !standable {
-            let vel_adjuster = if manager.vel_y < i32fx8::wrapping_from(0) {
-                i32fx8::from_bits(1 << 5)
+            let vel_adjuster = if manager.is_moving_up() {
+                VERT_DIFF_UP
             } else {
-                i32fx8::from_bits(1 << 6)
+                VERT_DIFF_DOWN
             };
 
-            manager.vel_y = manager.vel_y.add(vel_adjuster);
-            manager.player_y = manager.player_y.add(manager.vel_y);
-        } else if manager.vel_y > i32fx8::wrapping_from(0) {
-            manager.player_y = i32fx8::wrapping_from((row << 3) as i32 + 1);
-            manager.vel_y = i32fx8::wrapping_from(0);
-        } else if manager.vel_y < i32fx8::wrapping_from(0) {
-            // On the ground and needs vertical acceleration applied, not needed for anything at the moment
-            manager.player_y = manager.player_y.add(manager.vel_y);
-        } else if manager.vel_y == i32fx8::wrapping_from(0) {
-            manager.player_y = i32fx8::wrapping_from((row << 3) as i32 + 1);
-            manager.vel_y = i32fx8::wrapping_from(0);
+            let mut need_dec_vel_y = true;
             if keys.a() {
-                manager.vel_y = if keys.b()
+                let max_tick = if keys.b()
                     && (keys.left() || keys.right())
                     && !is_new_direction_opposite_cur_dir
                     && manager.vel_x.abs() > i32fx8::wrapping_from(1)
                 {
-                    i32fx8::from_bits((-1 << 10))
+                    12
                 } else {
-                    i32fx8::from_bits((-1 << 9) - 384)
+                    9
                 };
+                if manager.next_anim_tick < max_tick {
+                    manager.next_anim_tick += 1;
+                    need_dec_vel_y = false;
+                }
+            }
+
+            if need_dec_vel_y {
+                manager.vel_y = manager.vel_y.add(vel_adjuster);
+            }
+            manager.player_y = manager.player_y.add(manager.vel_y);
+        } else if manager.is_moving_down() {
+            manager.player_y = i32fx8::wrapping_from((row << 3) as i32 + 1);
+            manager.vel_y = i32fx8::wrapping_from(0);
+        } else if manager.is_moving_up() {
+            // On the ground and needs vertical acceleration applied, not needed for anything at the moment
+            manager.player_y = manager.player_y.add(manager.vel_y);
+        } else if manager.is_vertically_stationary() {
+            manager.player_y = i32fx8::wrapping_from((row << 3) as i32 + 1);
+            manager.vel_y = i32fx8::wrapping_from(0);
+            if keys.a() {
+                manager.next_anim_tick = 0;
+                manager.vel_y = i32fx8::from_bits(-975);
                 manager.player_y = manager.player_y.add(manager.vel_y);
                 manager.set_tile(MarioAnimationTileIdx::Jumping1);
             }
@@ -186,17 +227,17 @@ impl PlayerManager {
             i32fx8::from_bits(1 << 9)
         };
 
+        let mut stopping_conditions = false;
         if keys.left() {
             let was_above_min = manager.vel_x >= -max_x_speed;
             if was_above_min {
                 manager.vel_x = manager.vel_x.sub(x_mod_on_move);
                 if manager.vel_x < -max_x_speed {
                     manager.vel_x = -max_x_speed;
-                } else if manager.vel_x > i32fx8::default()
-                    && manager.vel_y == i32fx8::wrapping_from(0)
-                {
+                } else if manager.is_moving_right() && manager.is_vertically_stationary() {
                     // Changed direction, play stopping animation
                     manager.set_tile(MarioAnimationTileIdx::Stopping);
+                    stopping_conditions = true;
                 }
             }
         } else if keys.right() {
@@ -205,11 +246,10 @@ impl PlayerManager {
                 manager.vel_x = manager.vel_x.add(x_mod_on_move);
                 if manager.vel_x > max_x_speed {
                     manager.vel_x = max_x_speed;
-                } else if manager.vel_x < i32fx8::default()
-                    && manager.vel_y == i32fx8::wrapping_from(0)
-                {
+                } else if manager.is_moving_left() && manager.is_vertically_stationary() {
                     // Changed direction, play stopping animation
                     manager.set_tile(MarioAnimationTileIdx::Stopping);
+                    stopping_conditions = true;
                 }
             }
         } else {
@@ -235,9 +275,7 @@ impl PlayerManager {
             manager.vel_y = i32fx8::from_bits(-max_y_speed);
         }
 
-        if standable
-            && manager.vel_y == i32fx8::wrapping_from(0)
-            && manager.vel_x != i32fx8::wrapping_from(0)
+        if standable && !manager.is_horizontally_stationary() && manager.is_vertically_stationary()
         {
             manager.next_anim_tick = manager.next_anim_tick.saturating_sub(1);
             if manager.next_anim_tick == 0 {
@@ -247,6 +285,9 @@ impl PlayerManager {
                     manager.next_anim_tick = 2;
                 }
                 let new_tile = match manager.get_tile() {
+                    MarioAnimationTileIdx::Stopping if stopping_conditions => {
+                        MarioAnimationTileIdx::Stopping
+                    }
                     MarioAnimationTileIdx::Standing | MarioAnimationTileIdx::Stopping => {
                         MarioAnimationTileIdx::Walking1
                     }
@@ -259,8 +300,8 @@ impl PlayerManager {
             }
             // On the ground and moving
         } else if standable
-            && manager.vel_y == i32fx8::wrapping_from(0)
-            && manager.vel_x == i32fx8::wrapping_from(0)
+            && manager.is_horizontally_stationary()
+            && manager.is_vertically_stationary()
         {
             manager.set_tile(MarioAnimationTileIdx::Standing);
             manager.next_anim_tick = 0;
@@ -279,9 +320,9 @@ impl PlayerManager {
             manager.vel_x = i32fx8::default();
         }
 
-        if manager.vel_x < i32fx8::default() {
+        if manager.is_moving_left() {
             manager.facing_dir = false;
-        } else if manager.vel_x > i32fx8::default() {
+        } else if manager.is_moving_right() {
             manager.facing_dir = true;
         }
 
