@@ -7,7 +7,7 @@ use gba::prelude::*;
 use mario::{
     assets::{self, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START},
     keys::FRAME_KEYS,
-    level::LevelManager,
+    level_manager::LevelManager,
     logger,
     player::PlayerManager,
     score::ScoreManager,

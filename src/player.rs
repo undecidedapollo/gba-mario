@@ -4,12 +4,11 @@ use gba::prelude::*;
 
 use crate::{
     assets::{MARIO_TILE, MARIO_TILE_IDX_START},
-    ewram_static, gba_warning,
+    ewram_static,
     keys::FRAME_KEYS,
-    level::LevelManager,
-    math::mod_mask_u32,
+    level_manager::LevelManager,
     obj::VolAddressExt,
-    screen::ScreenManager,
+    screen::{ScreenInfo, ScreenManager},
     static_init::StaticInitSafe,
     tick::TickContext,
 };
@@ -34,7 +33,7 @@ ewram_static!(Player: PlayerManager = PlayerManager::new());
 
 #[repr(u16)]
 #[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum MarioAnimationTileIdx {
     Standing = 0,
     Walking1 = 1 * 4,
@@ -87,6 +86,15 @@ impl PlayerManager {
         self.vel_y > i32fx8::wrapping_from(0)
     }
 
+    // 8 to remove fractional and 3 to convert to rows instead of raw pixels
+    fn row(&self) -> u16 {
+        (self.player_y.to_bits() >> (8 + 3)) as u16
+    }
+
+    fn col(&self) -> u16 {
+        (self.player_x.to_bits() >> (8 + 3)) as u16
+    }
+
     fn set_tile(&mut self, tile: MarioAnimationTileIdx) {
         self.otr
             .set_tile_id((MARIO_TILE_IDX_START as u16 + (tile as u16)) * 2);
@@ -134,6 +142,12 @@ impl PlayerManager {
         AFFINE_PARAM_D.index(0).write(i16fx8::from_bits(1 << 8));
         self.otr = otr;
         self.set_tile(MarioAnimationTileIdx::Standing);
+        self.next_anim_tick = 0;
+        self.vel_x = i32fx8::wrapping_from(0);
+        self.vel_y = i32fx8::wrapping_from(0);
+        self.player_x = i32fx8::wrapping_from(32);
+        self.player_y = i32fx8::wrapping_from(32);
+        self.facing_dir = true;
 
         unsafe {
             copy_nonoverlapping(
@@ -152,26 +166,37 @@ impl PlayerManager {
         let _player = Player.get_or_init();
     }
 
-    pub fn tick(tick_context: TickContext) {
-        let manager = Player.get_or_init();
+    fn die_state_handler(&mut self) {
+        if self.next_anim_tick == 0 {
+            self.vel_y = i32fx8::from_bits(-1792);
+            self.next_anim_tick = 1;
+            return;
+        }
+
+        let vel_adjuster = if self.is_moving_up() {
+            VERT_DIFF_UP
+        } else {
+            VERT_DIFF_DOWN
+        };
+
+        self.vel_y = self.vel_y.add(vel_adjuster);
+        self.player_y = self.player_y.add(self.vel_y);
+
+        if self.row() > 23 {
+            self.reset_internal();
+            // todo: reset level / game state of sorts
+        }
+    }
+
+    fn default_movement_handler(&mut self, screen: ScreenInfo) {
         let keys = FRAME_KEYS.read();
-        let screen = ScreenManager::get_screen_info();
 
-        let row: u16 = (manager.player_y.to_bits() >> (8 + 3)) as u16; // 8 to remove fractional and 3 to convert to rows instead of raw pixels
-        let col: u16 = (manager.player_x.to_bits() >> (8 + 3)) as u16;
-
-        // gba_warning!(
-        //     "Player at row {}, col {}, plr {}",
-        //     row,
-        //     col,
-        //     manager.player_x.to_bits() >> 11
-        // );
-        let standable = LevelManager::is_standable(row + 2, col >> 1);
-        let is_new_direction_opposite_cur_dir = keys.left() && manager.vel_x > i32fx8::default()
-            || keys.right() && manager.vel_x < i32fx8::default();
+        let standable = LevelManager::is_standable(self.row() + 2, self.col() >> 1);
+        let is_new_direction_opposite_cur_dir = keys.left() && self.vel_x > i32fx8::default()
+            || keys.right() && self.vel_x < i32fx8::default();
 
         if !standable {
-            let vel_adjuster = if manager.is_moving_up() {
+            let vel_adjuster = if self.is_moving_up() {
                 VERT_DIFF_UP
             } else {
                 VERT_DIFF_DOWN
@@ -182,36 +207,39 @@ impl PlayerManager {
                 let max_tick = if keys.b()
                     && (keys.left() || keys.right())
                     && !is_new_direction_opposite_cur_dir
-                    && manager.vel_x.abs() > i32fx8::wrapping_from(1)
+                    && self.vel_x.abs() > i32fx8::wrapping_from(1)
                 {
                     12
                 } else {
                     9
                 };
-                if manager.next_anim_tick < max_tick {
-                    manager.next_anim_tick += 1;
+                if self.next_anim_tick < max_tick {
+                    self.next_anim_tick += 1;
                     need_dec_vel_y = false;
                 }
             }
 
             if need_dec_vel_y {
-                manager.vel_y = manager.vel_y.add(vel_adjuster);
+                self.vel_y = self.vel_y.add(vel_adjuster);
             }
-            manager.player_y = manager.player_y.add(manager.vel_y);
-        } else if manager.is_moving_down() {
-            manager.player_y = i32fx8::wrapping_from((row << 3) as i32 + 1);
-            manager.vel_y = i32fx8::wrapping_from(0);
-        } else if manager.is_moving_up() {
+            self.player_y = self.player_y.add(self.vel_y);
+        } else if self.is_moving_down() {
+            self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32 + 1);
+            self.vel_y = i32fx8::wrapping_from(0);
+        } else if self.is_moving_up() {
             // On the ground and needs vertical acceleration applied, not needed for anything at the moment
-            manager.player_y = manager.player_y.add(manager.vel_y);
-        } else if manager.is_vertically_stationary() {
-            manager.player_y = i32fx8::wrapping_from((row << 3) as i32 + 1);
-            manager.vel_y = i32fx8::wrapping_from(0);
+            self.player_y = self.player_y.add(self.vel_y);
+        } else if self.is_vertically_stationary() {
+            self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32 + 1);
+            self.vel_y = i32fx8::wrapping_from(0);
             if keys.a() {
-                manager.next_anim_tick = 0;
-                manager.vel_y = i32fx8::from_bits(-975);
-                manager.player_y = manager.player_y.add(manager.vel_y);
-                manager.set_tile(MarioAnimationTileIdx::Jumping1);
+                self.next_anim_tick = 0;
+                self.vel_y = i32fx8::from_bits(-975);
+                self.player_y = self.player_y.add(self.vel_y);
+                self.set_tile(MarioAnimationTileIdx::Jumping1);
+            } else if self.get_tile() == MarioAnimationTileIdx::Jumping1 {
+                self.set_tile(MarioAnimationTileIdx::Standing);
+                self.next_anim_tick = 0;
             }
         }
 
@@ -229,62 +257,61 @@ impl PlayerManager {
 
         let mut stopping_conditions = false;
         if keys.left() {
-            let was_above_min = manager.vel_x >= -max_x_speed;
+            let was_above_min = self.vel_x >= -max_x_speed;
             if was_above_min {
-                manager.vel_x = manager.vel_x.sub(x_mod_on_move);
-                if manager.vel_x < -max_x_speed {
-                    manager.vel_x = -max_x_speed;
-                } else if manager.is_moving_right() && manager.is_vertically_stationary() {
+                self.vel_x = self.vel_x.sub(x_mod_on_move);
+                if self.vel_x < -max_x_speed {
+                    self.vel_x = -max_x_speed;
+                } else if self.is_moving_right() && self.is_vertically_stationary() {
                     // Changed direction, play stopping animation
-                    manager.set_tile(MarioAnimationTileIdx::Stopping);
+                    self.set_tile(MarioAnimationTileIdx::Stopping);
                     stopping_conditions = true;
                 }
             }
         } else if keys.right() {
-            let was_below_max = manager.vel_x <= max_x_speed;
+            let was_below_max = self.vel_x <= max_x_speed;
             if was_below_max {
-                manager.vel_x = manager.vel_x.add(x_mod_on_move);
-                if manager.vel_x > max_x_speed {
-                    manager.vel_x = max_x_speed;
-                } else if manager.is_moving_left() && manager.is_vertically_stationary() {
+                self.vel_x = self.vel_x.add(x_mod_on_move);
+                if self.vel_x > max_x_speed {
+                    self.vel_x = max_x_speed;
+                } else if self.is_moving_left() && self.is_vertically_stationary() {
                     // Changed direction, play stopping animation
-                    manager.set_tile(MarioAnimationTileIdx::Stopping);
+                    self.set_tile(MarioAnimationTileIdx::Stopping);
                     stopping_conditions = true;
                 }
             }
         } else {
             let adj = i32fx8::from_bits(1 << 4);
-            if manager.vel_x > i32fx8::wrapping_from(0) {
-                manager.vel_x = manager.vel_x.sub(adj);
-            } else if manager.vel_x < i32fx8::wrapping_from(0) {
-                manager.vel_x = manager.vel_x.add(adj);
+            if self.is_moving_right() {
+                self.vel_x = self.vel_x.sub(adj);
+            } else if self.is_moving_left() {
+                self.vel_x = self.vel_x.add(adj);
             }
         }
 
         let max_y_speed = 1 << 10;
 
-        if manager.vel_x > max_x_speed {
-            manager.vel_x -= i32fx8::from_bits(1 << 3);
-        } else if manager.vel_x < -max_x_speed {
-            manager.vel_x += i32fx8::from_bits(1 << 3);
+        if self.vel_x > max_x_speed {
+            self.vel_x -= i32fx8::from_bits(1 << 3);
+        } else if self.vel_x < -max_x_speed {
+            self.vel_x += i32fx8::from_bits(1 << 3);
         }
 
-        if manager.vel_y > i32fx8::from_bits(max_y_speed) {
-            manager.vel_y = i32fx8::from_bits(max_y_speed);
-        } else if manager.vel_y < i32fx8::from_bits(-max_y_speed) {
-            manager.vel_y = i32fx8::from_bits(-max_y_speed);
+        if self.vel_y > i32fx8::from_bits(max_y_speed) {
+            self.vel_y = i32fx8::from_bits(max_y_speed);
+        } else if self.vel_y < i32fx8::from_bits(-max_y_speed) {
+            self.vel_y = i32fx8::from_bits(-max_y_speed);
         }
 
-        if standable && !manager.is_horizontally_stationary() && manager.is_vertically_stationary()
-        {
-            manager.next_anim_tick = manager.next_anim_tick.saturating_sub(1);
-            if manager.next_anim_tick == 0 {
-                manager.next_anim_tick =
-                    10 - (manager.vel_x.abs().mul(i32fx8::wrapping_from(3)).to_bits() >> 8) as u8;
-                if manager.next_anim_tick < 2 {
-                    manager.next_anim_tick = 2;
+        if standable && !self.is_horizontally_stationary() && self.is_vertically_stationary() {
+            self.next_anim_tick = self.next_anim_tick.saturating_sub(1);
+            if self.next_anim_tick == 0 {
+                self.next_anim_tick =
+                    10 - (self.vel_x.abs().mul(i32fx8::wrapping_from(3)).to_bits() >> 8) as u8;
+                if self.next_anim_tick < 2 {
+                    self.next_anim_tick = 2;
                 }
-                let new_tile = match manager.get_tile() {
+                let new_tile = match self.get_tile() {
                     MarioAnimationTileIdx::Stopping if stopping_conditions => {
                         MarioAnimationTileIdx::Stopping
                     }
@@ -296,40 +323,56 @@ impl PlayerManager {
                     MarioAnimationTileIdx::Walking3 => MarioAnimationTileIdx::Walking1,
                     _ => MarioAnimationTileIdx::Walking1,
                 };
-                manager.set_tile(new_tile);
+                self.set_tile(new_tile);
             }
             // On the ground and moving
-        } else if standable
-            && manager.is_horizontally_stationary()
-            && manager.is_vertically_stationary()
+        } else if standable && self.is_horizontally_stationary() && self.is_vertically_stationary()
         {
-            manager.set_tile(MarioAnimationTileIdx::Standing);
-            manager.next_anim_tick = 0;
+            self.set_tile(MarioAnimationTileIdx::Standing);
+            self.next_anim_tick = 0;
         }
 
-        // gba_warning!("Player {:?}, {:?}", manager.vel_x, manager.vel_y,);
+        // gba_warning!("Player {:?}, {:?}", self.vel_x, self.vel_y,);
 
-        manager.player_x = manager.player_x.add(manager.vel_x);
+        self.player_x = self.player_x.add(self.vel_x);
 
-        if manager.player_x < screen.affn_x {
-            manager.player_x = screen.affn_x;
-            manager.vel_x = i32fx8::default();
+        if self.player_x < screen.affn_x {
+            self.player_x = screen.affn_x;
+            self.vel_x = i32fx8::default();
         }
 
-        if manager.vel_x.abs() < i32fx8::from_bits(1 << 4) {
-            manager.vel_x = i32fx8::default();
+        if self.vel_x.abs() < i32fx8::from_bits(1 << 4) {
+            self.vel_x = i32fx8::default();
         }
 
-        if manager.is_moving_left() {
-            manager.facing_dir = false;
-        } else if manager.is_moving_right() {
-            manager.facing_dir = true;
+        if self.row() > 23 {
+            self.set_tile(MarioAnimationTileIdx::DieState);
+            self.next_anim_tick = 0;
         }
+
+        if self.is_moving_left() {
+            self.facing_dir = false;
+        } else if self.is_moving_right() {
+            self.facing_dir = true;
+        }
+    }
+
+    pub fn tick(tick_context: TickContext) {
+        let manager = Player.get_or_init();
+        let screen = ScreenManager::get_screen_info();
+
+        if manager.get_tile() == MarioAnimationTileIdx::DieState {
+            manager.die_state_handler();
+        } else {
+            manager.default_movement_handler(screen);
+        }
+
+        let middle_screen_px = screen.affn_x.add(i32fx8::wrapping_from(10 * 8));
 
         let player_min_y = screen.affn_y.add(i32fx8::wrapping_from(45));
         let player_max_y = screen.affn_y.add(i32fx8::wrapping_from(120));
 
-        gba_warning!("velx {:?}, vely {:?}", manager.vel_x, manager.vel_y);
+        // gba_warning!("velx {:?}, vely {:?}", manager.vel_x, manager.vel_y);
 
         let y_diff = if manager.player_y < player_min_y {
             manager.player_y.sub(player_min_y)
@@ -339,8 +382,6 @@ impl PlayerManager {
             i32fx8::default()
         };
 
-        let middle_screen_px = screen.affn_x.add(i32fx8::wrapping_from(10 * 8));
-
         let mut to_far = manager.player_x.sub(middle_screen_px);
         if to_far <= i32fx8::default() {
             to_far = i32fx8::default();
@@ -349,13 +390,6 @@ impl PlayerManager {
             ScreenManager::translate(to_far, y_diff);
         }
 
-        // gba_warning!(
-        //     "Player row {}, {}, {}",
-        //     row,
-        //     standable,
-        //     (manager.player_x.to_bits() >> 8) as u16
-        // );
-        // manager.otr.set_y((manager.p.to_bits() >> 8) as u16);
         manager
             .otr
             .set_x((manager.player_x.sub(screen.affn_x).to_bits() >> 8) as u16);

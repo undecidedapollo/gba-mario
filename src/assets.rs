@@ -9,8 +9,9 @@ use gba::{
 
 pub static SHARED_PALETTE: Align4<[u8; 24]> = include_aligned_bytes!("../asset_out/shared.palette");
 
-pub static BACKGROUND_TILES: Align4<[u8; 8192]> =
+pub static BACKGROUND_TILES: Align4<[u8; 10240]> =
     include_aligned_bytes!("../asset_out/tileset.sprite");
+pub const BACKGROUND_TILE_COLS_PER_ROW: usize = 16;
 pub static COIN_TILE: Align4<[u8; 256]> = include_aligned_bytes!("../asset_out/coin.sprite");
 pub static MARIO_TILE: Align4<[u8; 2048]> = include_aligned_bytes!("../asset_out/mario.sprite");
 
@@ -65,6 +66,7 @@ pub fn reset_data() {
             BG_PALETTE.as_usize() as *mut u8,
             SHARED_PALETTE.0.len(),
         );
+        BG_PALETTE.index(0).write(Color(0x7E73));
         let colors: [gba::video::Color; 16] = [
             crate::color::TRANSPARENT, // Can't be accessed by the mapping function being used
             crate::color::WHITE,
