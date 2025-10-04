@@ -6,8 +6,10 @@ use core::{fmt::Write, ptr::copy_nonoverlapping};
 use gba::prelude::*;
 use mario::{
     assets::{self, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START},
+    gba_warning,
     keys::FRAME_KEYS,
     level_manager::LevelManager,
+    levels::shared::{PIPE_BODY_LEFT, PIPE_BODY_RIGHT, PIPE_TOP_LEFT, PIPE_TOP_RIGHT},
     logger,
     player::PlayerManager,
     score::ScoreManager,

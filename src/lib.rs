@@ -6,6 +6,7 @@ pub mod assets;
 pub mod color;
 pub mod ewramstring;
 pub mod fixed_bag;
+pub mod fixed_queue;
 pub mod keys;
 pub mod level_manager;
 pub mod levels;

@@ -13,6 +13,10 @@ impl Tile {
         Tile(id)
     }
 
+    pub fn id(&self) -> usize {
+        self.0
+    }
+
     pub fn top_left(&self) -> usize {
         self.0
     }

@@ -1,8 +1,12 @@
+use core::ops::Add;
+
 use gba::prelude::*;
+use rand_xoshiro::rand_core::le;
 
 use crate::{
     ewram_static,
     fixed_bag::FixedBag,
+    fixed_queue::FixedQueue,
     gba_warning,
     levels::shared::{
         LEVEL_1_1, Level, LevelFloor, LevelItem, PIPE_BODY_LEFT, PIPE_BODY_RIGHT, PIPE_TOP_LEFT,
@@ -21,6 +25,8 @@ pub struct LevelManager {
     col_ptr: usize,
     current_level: &'static Level,
     stack_of_renders: FixedBag<ManagedItem, 8>,
+    stand_matrix: FixedQueue<u32, 32>,
+    queue_start: usize,
 }
 
 #[derive(Clone, Copy)]
@@ -38,6 +44,8 @@ impl LevelManager {
             col_ptr: 0,
             current_level: &LEVEL_1_1,
             stack_of_renders: FixedBag::new(),
+            stand_matrix: FixedQueue::new(),
+            queue_start: 0,
         }
     }
 
@@ -47,33 +55,26 @@ impl LevelManager {
         Level.init();
     }
 
-    pub fn is_standable(mut row: u16, col: u16) -> bool {
-        row = mod_mask_u32(row as u32, Powers::_32) as u16;
+    pub fn collision_mask(mut col: u16) -> u32 {
         let screen_details = ScreenManager::get_screen_info();
         let end = screen_details.onscreen_col_end();
-        if col < screen_details.onscreen_col_start || col > end {
-            gba_warning!(
-                "Checking standable out of screen bounds: {},{} (screen {}-{})",
-                col,
-                row,
-                screen_details.onscreen_col_start,
-                end
-            );
-            return false;
+        if col < screen_details.onscreen_col_start {
+            col = screen_details.onscreen_col_start;
+        } else if col > end {
+            col = end;
         }
 
-        let screenblock_col: usize = mod_mask_u32(col as u32, Powers::_32) as usize;
+        let manager = Level.get_or_init();
+        let diff_to_add = screen_details.onscreen_col_start - manager.queue_start as u16;
+        let col_idx = col
+            .saturating_sub(screen_details.onscreen_col_start)
+            .add(diff_to_add);
 
-        let Some(tile) = AFFINE2_SCREENBLOCKS
-            .get_frame(16)
-            .unwrap()
-            .get(screenblock_col, row.into())
-            .map(|x| x.read())
-        else {
-            gba_warning!("Failed to read tile at {},{}", col, row);
-            return false;
-        };
-        tile.high() != 0 || tile.low() != 0
+        if let Some(mask) = manager.stand_matrix.get(col_idx as usize) {
+            return *mask;
+        }
+
+        return 0;
     }
 
     fn draw_tile(&mut self, row: usize, col: usize, tile: Tile) {
@@ -101,21 +102,33 @@ impl LevelManager {
         let screen_details = ScreenManager::get_screen_info();
         let start = screen_details.onscreen_col_start;
         let end: u16 = screen_details.onscreen_col_end();
-        let render_end = end + 4;
-        let reap = (start as u16).saturating_sub(4);
-        if self.rendered_col >= render_end {
+        let render_end = end + 2;
+        let reap = (start as u16).saturating_sub(8);
+        // gba_warning!(
+        //     "Start {}, end {}, render_end {}, reap {}",
+        //     start,
+        //     end,
+        //     render_end,
+        //     reap
+        // );
+
+        // Don't handle column operations on odd frames
+        if self.rendered_col >= render_end || mod_mask_u32(start as u32, Powers::_2) != 0 {
             return;
         }
 
-        for i in self.rendered_col..render_end {
+        for mut i in (self.rendered_col..render_end).step_by(2) {
+            i = i >> 1;
+            let mut standable_mask: u32 = 0;
             let screenblock_col: usize = mod_mask_u32(i as u32, Powers::_32) as usize;
+            gba_warning!("Rendering column {} actual {}", i, screenblock_col);
 
             let floor_bottom_for_col = match self.current_level.floor {
                 LevelFloor::Solid { tile: _, row } => row,
             };
 
             while self.col_ptr <= (i as usize) && self.level_ptr < self.current_level.data.len() {
-                let item = self.current_level.data[self.level_ptr];
+                let item: LevelItem = self.current_level.data[self.level_ptr];
                 self.level_ptr += 1;
                 match item {
                     LevelItem::NextCol { advance_by } => {
@@ -148,6 +161,7 @@ impl LevelManager {
                         continue;
                     }
                     LevelItem::Pipe { row } => {
+                        standable_mask |= 0b11 << row;
                         if i as usize == managed.col_start {
                             self.draw_tile(row, screenblock_col, PIPE_TOP_LEFT);
                         } else {
@@ -156,6 +170,7 @@ impl LevelManager {
                         let diff = floor_bottom_for_col.saturating_sub(row + 2) >> 1;
                         for vert_row in 0..diff {
                             let row = (row + 2) + vert_row * 2;
+                            standable_mask |= 0b11 << row;
                             if i as usize == managed.col_start {
                                 self.draw_tile(row, screenblock_col, PIPE_BODY_LEFT);
                             } else {
@@ -171,35 +186,37 @@ impl LevelManager {
                     LevelItem::Tile { len, row, tile } => {
                         let col_in_item = i as usize - managed.col_start;
                         if col_in_item < len {
+                            standable_mask |= 0b11 << row;
                             self.draw_tile(row, screenblock_col, tile);
                         } else {
                             self.stack_of_renders.remove(idx);
                         }
                     }
                 }
-                if let LevelItem::Tile { tile, row, len } = managed.item {
-                    let col_in_item = i as usize - managed.col_start;
-                    if col_in_item < len {
-                        self.draw_tile(row, screenblock_col, tile);
-                    } else {
-                        self.stack_of_renders.remove(idx);
-                    }
-                }
             }
 
             if let LevelFloor::Solid { tile, row } = self.current_level.floor {
+                standable_mask |= 0b1111 << row;
                 self.draw_tile(row, screenblock_col, tile);
                 self.draw_tile(row + 2, screenblock_col, tile);
+            }
+
+            // gba_warning!("Standable mask for col: {:032b}", standable_mask);
+            // Push twice to account for 2-column tiles
+            if self.stand_matrix.push_pop(standable_mask).is_some() {
+                self.queue_start += 1;
+            }
+            if self.stand_matrix.push_pop(standable_mask).is_some() {
+                self.queue_start += 1;
             }
 
             if self.col_ptr >= self.current_level.data.len() {
                 continue;
             }
-
-            // gba_warning!("Rendering column {} actual {}", i, screenblock_col);
         }
         self.rendered_col = render_end;
-        for i in self.reaped_col..reap {
+        for mut i in self.reaped_col..reap {
+            i = i >> 1;
             let screenblock_col = mod_mask_u32(i as u32, Powers::_32) as usize;
             // gba_warning!("Reaping column {} actual {}", i, screenblock_col);
             for i in 0..32 {

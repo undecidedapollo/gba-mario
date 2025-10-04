@@ -7,6 +7,7 @@ use crate::{
     ewram_static,
     keys::FRAME_KEYS,
     level_manager::LevelManager,
+    math::mod_mask_u32,
     obj::VolAddressExt,
     screen::{ScreenInfo, ScreenManager},
     static_init::StaticInitSafe,
@@ -86,7 +87,7 @@ impl PlayerManager {
         self.vel_y > i32fx8::wrapping_from(0)
     }
 
-    // 8 to remove fractional and 3 to convert to rows instead of raw pixels
+    // 8 to remove fractional and 2 to convert to rows instead of raw pixels
     fn row(&self) -> u16 {
         (self.player_y.to_bits() >> (8 + 3)) as u16
     }
@@ -191,11 +192,36 @@ impl PlayerManager {
     fn default_movement_handler(&mut self, screen: ScreenInfo) {
         let keys = FRAME_KEYS.read();
 
-        let standable = LevelManager::is_standable(self.row() + 2, self.col() >> 1);
+        let is_player_sorta_to_the_right = mod_mask_u32(
+            (self.player_x.to_bits() >> 8) as u32,
+            crate::math::Powers::_8,
+        ) >= 3;
+
+        let row: u16 = self.row();
+        let bottom_of_player = row + 2;
+        let mask_above = 0b1 << row.saturating_sub(1);
+        let mask_body = 0b11 << row;
+        let mask_under = 0b1 << bottom_of_player;
+
+        let left_air = LevelManager::collision_mask(self.col().saturating_sub(1));
+        let left_collision = LevelManager::collision_mask(self.col());
+        let right_collision = LevelManager::collision_mask(self.col() + 1);
+        let right_air = LevelManager::collision_mask(self.col() + 2);
+
+        let collision_bottom = (left_collision & mask_under != 0)
+            || (right_collision & mask_under != 0)
+            || (is_player_sorta_to_the_right && (right_air & mask_under != 0));
+
+        let collision_top =
+            (left_collision & mask_above != 0) || (right_collision & mask_above != 0);
+        let collide_left = left_air & mask_body != 0;
+        let collide_right = right_air & mask_body != 0;
+
         let is_new_direction_opposite_cur_dir = keys.left() && self.vel_x > i32fx8::default()
             || keys.right() && self.vel_x < i32fx8::default();
 
-        if !standable {
+        if (!collision_bottom && (!self.is_moving_up())) || (!collision_top && self.is_moving_up())
+        {
             let vel_adjuster = if self.is_moving_up() {
                 VERT_DIFF_UP
             } else {
@@ -223,12 +249,12 @@ impl PlayerManager {
                 self.vel_y = self.vel_y.add(vel_adjuster);
             }
             self.player_y = self.player_y.add(self.vel_y);
-        } else if self.is_moving_down() {
+        } else if collision_bottom && self.is_moving_down() {
             self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32 + 1);
             self.vel_y = i32fx8::wrapping_from(0);
-        } else if self.is_moving_up() {
-            // On the ground and needs vertical acceleration applied, not needed for anything at the moment
-            self.player_y = self.player_y.add(self.vel_y);
+        } else if collision_top && self.is_moving_up() {
+            self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32);
+            self.vel_y = i32fx8::wrapping_from(0);
         } else if self.is_vertically_stationary() {
             self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32 + 1);
             self.vel_y = i32fx8::wrapping_from(0);
@@ -255,8 +281,14 @@ impl PlayerManager {
             i32fx8::from_bits(1 << 9)
         };
 
-        let mut stopping_conditions = false;
-        if keys.left() {
+        let mut stopping_conditions: bool = false;
+        if collide_left && (self.is_moving_left() || keys.left()) {
+            self.vel_x = i32fx8::default();
+            self.player_x = i32fx8::wrapping_from((self.col() << 3) as i32);
+        } else if collide_right && (self.is_moving_right() || keys.right()) {
+            self.vel_x = i32fx8::default();
+            self.player_x = i32fx8::wrapping_from((self.col() << 3) as i32 + 2);
+        } else if keys.left() {
             let was_above_min = self.vel_x >= -max_x_speed;
             if was_above_min {
                 self.vel_x = self.vel_x.sub(x_mod_on_move);
@@ -303,7 +335,13 @@ impl PlayerManager {
             self.vel_y = i32fx8::from_bits(-max_y_speed);
         }
 
-        if standable && !self.is_horizontally_stationary() && self.is_vertically_stationary() {
+        let is_walking_animation_valid_horizontally: bool =
+            !self.is_horizontally_stationary() || (keys.left() || keys.right());
+
+        if collision_bottom
+            && is_walking_animation_valid_horizontally
+            && self.is_vertically_stationary()
+        {
             self.next_anim_tick = self.next_anim_tick.saturating_sub(1);
             if self.next_anim_tick == 0 {
                 self.next_anim_tick =
@@ -326,7 +364,9 @@ impl PlayerManager {
                 self.set_tile(new_tile);
             }
             // On the ground and moving
-        } else if standable && self.is_horizontally_stationary() && self.is_vertically_stationary()
+        } else if collision_bottom
+            && self.is_horizontally_stationary()
+            && self.is_vertically_stationary()
         {
             self.set_tile(MarioAnimationTileIdx::Standing);
             self.next_anim_tick = 0;

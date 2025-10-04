@@ -17,6 +17,9 @@ pub static MARIO_TILE: Align4<[u8; 2048]> = include_aligned_bytes!("../asset_out
 
 pub const COIN_TILE_IDX_START: usize = 1;
 pub const MARIO_TILE_IDX_START: usize = COIN_TILE_IDX_START + COIN_TILE.0.len() / 64;
+// Affine 2 is about the same size per stride as text, if we change affine background size (use something other than AFFINE2 we will need to change this)
+pub const AFFINE2_SCREENBLOCK_START: usize = 16; // 0x0600_8000
+pub const TEXT_SCREENBLOCK_START: usize = 24; // 0x0600_C000
 
 pub fn zero_screenblock(frame: usize) {
     // Zero out the screenblock

@@ -1,6 +1,7 @@
 use core::fmt::Write;
 
 use crate::{
+    assets::TEXT_SCREENBLOCK_START,
     color::PaletteColor,
     ewram_static,
     ewramstring::EwramString,
@@ -38,7 +39,7 @@ impl ScoreManager {
 
         let score_str = "Score:";
         ScreenTextManager::write_text(
-            2,
+            TEXT_SCREENBLOCK_START,
             score_str,
             (30 - 6 - score_str.len() - 1, 0),
             PaletteColor::White,
@@ -54,7 +55,7 @@ impl ScoreManager {
         write!(str, "{:0>6}", self.score).unwrap();
         let start_idx = 30 - str.len;
         self.score_handle = ScreenTextManager::write_text(
-            2,
+            TEXT_SCREENBLOCK_START,
             str.as_str(),
             (start_idx, 0),
             PaletteColor::Cyan,

@@ -27,7 +27,7 @@ pub struct ScreenInfo {
 
 impl ScreenInfo {
     pub fn onscreen_col_end(&self) -> u16 {
-        self.onscreen_col_start + 15
+        self.onscreen_col_start + 30
     }
 }
 
@@ -50,8 +50,7 @@ impl ScreenManager {
         ScreenInfo {
             affn_x: screen.affn_x,
             affn_y: screen.affn_y,
-            onscreen_col_start: (screen.affn_x.div(i32fx8::wrapping_from(16)).to_bits() >> 8)
-                as u16,
+            onscreen_col_start: (screen.affn_x.div(i32fx8::wrapping_from(8)).to_bits() >> 8) as u16,
         }
     }
 
