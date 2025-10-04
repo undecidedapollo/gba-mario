@@ -36,11 +36,22 @@ const fn get_tile_idx(row: usize, col: usize) -> usize {
 }
 
 pub static BRICK: Tile = Tile::new(get_tile_idx(0, 0));
+pub static QUESTION_BLOCK_UNUSED: Tile = Tile::new(get_tile_idx(0, 2));
 pub static ROCK: Tile = Tile::new(get_tile_idx(0, 1));
 pub static PIPE_TOP_LEFT: Tile = Tile::new(get_tile_idx(0, 6));
 pub static PIPE_TOP_RIGHT: Tile = Tile::new(get_tile_idx(0, 7));
 pub static PIPE_BODY_LEFT: Tile = Tile::new(get_tile_idx(1, 6));
 pub static PIPE_BODY_RIGHT: Tile = Tile::new(get_tile_idx(1, 7));
+
+pub static BUSH_LEFT: Tile = Tile::new(get_tile_idx(1, 2));
+pub static BUSH_MIDDLE: Tile = Tile::new(get_tile_idx(1, 3));
+pub static BUSH_RIGHT: Tile = Tile::new(get_tile_idx(3, 7));
+
+pub static MOUNTAIL_TOP: Tile = Tile::new(get_tile_idx(3, 3));
+pub static MOUNTAIL_SLOPE_UP: Tile = Tile::new(get_tile_idx(4, 3));
+pub static MOUNTAIL_BUTTONS: Tile = Tile::new(get_tile_idx(4, 4));
+pub static MOUNTAIL_EMPTY: Tile = Tile::new(get_tile_idx(4, 5));
+pub static MOUNTAIL_SLOPE_DOWN: Tile = Tile::new(get_tile_idx(4, 7));
 
 pub struct Level {
     pub floor: LevelFloor,
@@ -54,33 +65,60 @@ pub enum LevelItem {
     NextCol { advance_by: usize },
 }
 
-pub const LEVEL_1_1_DATA: [LevelItem; 8] = [
-    LevelItem::NextCol { advance_by: 8 },
-    LevelItem::Tile {
-        tile: PIPE_BODY_RIGHT,
-        row: 14,
-        len: 3,
+const FLOOR: usize = 15;
+const SCREEN_WIDTH: usize = 16;
+
+const fn from_floor(up_from_floor: usize) -> usize {
+    (FLOOR - 1).saturating_sub(up_from_floor)
+}
+
+pub const LEVEL_1_1_DATA: [LevelItem; 18] = [
+    LevelItem::NextCol {
+        advance_by: SCREEN_WIDTH,
     },
-    LevelItem::NextCol { advance_by: 4 },
-    LevelItem::Pipe { row: 16 },
+    LevelItem::Tile {
+        tile: QUESTION_BLOCK_UNUSED,
+        row: from_floor(3),
+        len: 1,
+    },
     LevelItem::NextCol { advance_by: 4 },
     LevelItem::Tile {
         tile: BRICK,
-        row: 14,
-        len: 4,
+        row: from_floor(3),
+        len: 5,
     },
-    LevelItem::NextCol { advance_by: 8 },
+    LevelItem::NextCol { advance_by: 1 },
+    LevelItem::Tile {
+        tile: QUESTION_BLOCK_UNUSED,
+        row: from_floor(3),
+        len: 1,
+    },
+    LevelItem::NextCol { advance_by: 1 },
     LevelItem::Tile {
         tile: BRICK,
-        row: 14,
-        len: 3,
+        row: from_floor(6),
+        len: 1,
     },
+    LevelItem::NextCol { advance_by: 1 },
+    LevelItem::Tile {
+        tile: QUESTION_BLOCK_UNUSED,
+        row: from_floor(3),
+        len: 1,
+    },
+    LevelItem::NextCol { advance_by: 5 },
+    LevelItem::Pipe { row: from_floor(1) },
+    LevelItem::NextCol { advance_by: 10 },
+    LevelItem::Pipe { row: from_floor(2) },
+    LevelItem::NextCol { advance_by: 8 },
+    LevelItem::Pipe { row: from_floor(3) },
+    LevelItem::NextCol { advance_by: 11 },
+    LevelItem::Pipe { row: from_floor(3) },
 ];
 
 pub const LEVEL_1_1: Level = Level {
     floor: LevelFloor::Solid {
         tile: ROCK,
-        row: 22,
+        row: FLOOR,
     },
     data: &LEVEL_1_1_DATA,
 };

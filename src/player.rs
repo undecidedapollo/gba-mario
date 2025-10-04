@@ -220,6 +220,11 @@ impl PlayerManager {
         let is_new_direction_opposite_cur_dir = keys.left() && self.vel_x > i32fx8::default()
             || keys.right() && self.vel_x < i32fx8::default();
 
+        let is_fast_enough_run = keys.b()
+            && (keys.left() || keys.right())
+            && !is_new_direction_opposite_cur_dir
+            && self.vel_x.abs() > i32fx8::wrapping_from(1);
+
         if (!collision_bottom && (!self.is_moving_up())) || (!collision_top && self.is_moving_up())
         {
             let vel_adjuster = if self.is_moving_up() {
@@ -230,18 +235,12 @@ impl PlayerManager {
 
             let mut need_dec_vel_y = true;
             if keys.a() {
-                let max_tick = if keys.b()
-                    && (keys.left() || keys.right())
-                    && !is_new_direction_opposite_cur_dir
-                    && self.vel_x.abs() > i32fx8::wrapping_from(1)
-                {
-                    12
-                } else {
-                    9
-                };
+                let max_tick = if is_fast_enough_run { 24 } else { 18 };
                 if self.next_anim_tick < max_tick {
                     self.next_anim_tick += 1;
-                    need_dec_vel_y = false;
+                    if self.next_anim_tick & 0b1 == 0 {
+                        need_dec_vel_y = false;
+                    }
                 }
             }
 
@@ -260,7 +259,7 @@ impl PlayerManager {
             self.vel_y = i32fx8::wrapping_from(0);
             if keys.a() {
                 self.next_anim_tick = 0;
-                self.vel_y = i32fx8::from_bits(-975);
+                self.vel_y = i32fx8::from_bits(if is_fast_enough_run { -1200 } else { -1100 });
                 self.player_y = self.player_y.add(self.vel_y);
                 self.set_tile(MarioAnimationTileIdx::Jumping1);
             } else if self.get_tile() == MarioAnimationTileIdx::Jumping1 {
@@ -321,7 +320,7 @@ impl PlayerManager {
             }
         }
 
-        let max_y_speed = 1 << 10;
+        let max_y_speed = 1600;
 
         if self.vel_x > max_x_speed {
             self.vel_x -= i32fx8::from_bits(1 << 3);
@@ -385,7 +384,7 @@ impl PlayerManager {
             self.vel_x = i32fx8::default();
         }
 
-        if self.row() > 23 {
+        if self.row() >= 32 {
             self.set_tile(MarioAnimationTileIdx::DieState);
             self.next_anim_tick = 0;
         }

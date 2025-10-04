@@ -63,9 +63,9 @@ impl ScreenManager {
         let screen = Screen.get_or_init();
         screen.affn_x = screen.affn_x.add(x);
         screen.affn_y = screen.affn_y.add(y);
-        if screen.affn_y > i32fx8::wrapping_from(4 * 10) {
-            screen.affn_y = i32fx8::wrapping_from(4 * 10);
-        }
+        // if screen.affn_y > i32fx8::wrapping_from(4 * 10) {
+        //     screen.affn_y = i32fx8::wrapping_from(4 * 10);
+        // }
     }
 
     pub fn post_tick() {
