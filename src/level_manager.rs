@@ -137,6 +137,8 @@ impl LevelManager {
                 (floor_bg - 1).saturating_sub(up_from_floor) << 1
             };
 
+            let mut should_floor_be_visible = true;
+
             match background_col {
                 0 => {
                     self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_UP);
@@ -204,19 +206,11 @@ impl LevelManager {
                     LevelItem::NextCol { advance_by } => {
                         self.col_ptr += advance_by;
                     }
-                    tile @ LevelItem::Tile {
-                        tile: _,
-                        len: _,
-                        row: _,
-                    } => {
+                    LevelItem::Tile { .. }
+                    | LevelItem::Pipe { .. }
+                    | LevelItem::HoleInFloor { .. } => {
                         self.stack_of_renders.push(ManagedItem {
-                            item: tile,
-                            col_start: i as usize,
-                        });
-                    }
-                    pipe @ LevelItem::Pipe { row: _ } => {
-                        self.stack_of_renders.push(ManagedItem {
-                            item: pipe,
+                            item,
                             col_start: i as usize,
                         });
                     }
@@ -264,10 +258,21 @@ impl LevelManager {
                             self.stack_of_renders.remove(idx);
                         }
                     }
+                    LevelItem::HoleInFloor { len } => {
+                        let col_in_item = i as usize - managed.col_start;
+
+                        if col_in_item >= len {
+                            self.stack_of_renders.remove(idx);
+                        } else {
+                            should_floor_be_visible = false;
+                        }
+                    }
                 }
             }
 
-            if let LevelFloor::Solid { tile, row } = self.current_level.floor {
+            if should_floor_be_visible
+                && let LevelFloor::Solid { tile, row } = self.current_level.floor
+            {
                 let row = row << 1;
                 standable_mask |= 0b1111 << row;
                 self.draw_tile(row, screenblock_col, tile);
@@ -292,7 +297,7 @@ impl LevelManager {
             i = i >> 1;
             let screenblock_col = mod_mask_u32(i as u32, Powers::_32) as usize;
             // gba_warning!("Reaping column {} actual {}", i, screenblock_col);
-            for i in 0..32 {
+            for i in 0..=34 {
                 AFFINE2_SCREENBLOCKS
                     .get_frame(16)
                     .unwrap()

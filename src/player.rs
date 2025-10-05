@@ -183,7 +183,7 @@ impl PlayerManager {
         self.vel_y = self.vel_y.add(vel_adjuster);
         self.player_y = self.player_y.add(self.vel_y);
 
-        if self.row() > 23 {
+        if self.row() > 32 {
             self.reset_internal();
             // todo: reset level / game state of sorts
         }

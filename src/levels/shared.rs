@@ -61,6 +61,7 @@ pub struct Level {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum LevelItem {
     Tile { tile: Tile, row: usize, len: usize },
+    HoleInFloor { len: usize },
     Pipe { row: usize },
     NextCol { advance_by: usize },
 }
@@ -72,7 +73,7 @@ const fn from_floor(up_from_floor: usize) -> usize {
     (FLOOR - 1).saturating_sub(up_from_floor)
 }
 
-pub const LEVEL_1_1_DATA: [LevelItem; 18] = [
+pub const LEVEL_1_1_DATA: &[LevelItem] = &[
     LevelItem::NextCol {
         advance_by: SCREEN_WIDTH,
     },
@@ -81,6 +82,7 @@ pub const LEVEL_1_1_DATA: [LevelItem; 18] = [
         row: from_floor(3),
         len: 1,
     },
+    LevelItem::HoleInFloor { len: 2 },
     LevelItem::NextCol { advance_by: 4 },
     LevelItem::Tile {
         tile: BRICK,
@@ -113,6 +115,8 @@ pub const LEVEL_1_1_DATA: [LevelItem; 18] = [
     LevelItem::Pipe { row: from_floor(3) },
     LevelItem::NextCol { advance_by: 11 },
     LevelItem::Pipe { row: from_floor(3) },
+    LevelItem::NextCol { advance_by: 12 },
+    LevelItem::HoleInFloor { len: 2 },
 ];
 
 pub const LEVEL_1_1: Level = Level {
