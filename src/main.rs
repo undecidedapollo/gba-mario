@@ -5,16 +5,19 @@
 use core::{fmt::Write, ptr::copy_nonoverlapping};
 use gba::prelude::*;
 use mario::{
-    assets::{self, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START},
+    assets::{
+        self, AFFINE2_SCREENBLOCK_START, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START,
+        TEXT_SCREENBLOCK_START,
+    },
     gba_warning,
     keys::FRAME_KEYS,
     level_manager::LevelManager,
     levels::shared::{PIPE_BODY_LEFT, PIPE_BODY_RIGHT, PIPE_TOP_LEFT, PIPE_TOP_RIGHT},
     logger,
     player::PlayerManager,
-    score::ScoreManager,
     screen::ScreenManager,
     tick::TickContext,
+    topbar::TopBarManager,
 };
 
 #[panic_handler]
@@ -49,13 +52,20 @@ extern "C" fn main() -> ! {
             .with_video_mode(VideoMode::_1)
             .with_obj_vram_1d(true)
             .with_show_bg2(true)
-            .with_show_bg1(false)
+            .with_show_bg1(true)
             .with_show_obj(true),
+    );
+    BG1CNT.write(
+        BackgroundControl::new()
+            .with_size(1)
+            .with_screenblock(TEXT_SCREENBLOCK_START as u16)
+            .with_bpp8(false)
+            .with_charblock(1),
     );
     BG2CNT.write(
         BackgroundControl::new()
             .with_size(2)
-            .with_screenblock(16)
+            .with_screenblock(AFFINE2_SCREENBLOCK_START as u16)
             .with_bpp8(true)
             .with_charblock(0)
             .with_mosaic(true)
@@ -107,7 +117,7 @@ extern "C" fn main() -> ! {
         // AFFINE_PARAM_D.index(0).write(i16fx8::from_bits(val as i16));
         LevelManager::tick(tick_ctx);
         PlayerManager::tick(tick_ctx);
-        ScoreManager::tick();
+        TopBarManager::tick(tick_ctx);
         ScreenManager::post_tick();
     }
 }
