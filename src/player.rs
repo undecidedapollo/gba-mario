@@ -436,7 +436,7 @@ impl PlayerManager {
             .otr
             .set_y((manager.player_y.sub(screen.affn_y).to_bits() >> 8) as u16);
         manager.update_face_dir();
-        OBJ_ATTR_ALL.index(0).write_consecutive(&[manager.otr]);
+        OBJ_ATTR_ALL.index(0).write(manager.otr);
         // manager.otr.write(OBJ_ATTR_ALL.index(0));
     }
 }

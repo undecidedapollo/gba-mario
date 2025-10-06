@@ -82,7 +82,7 @@ pub const LEVEL_1_1_DATA: &[LevelItem] = &[
         row: from_floor(3),
         len: 1,
     },
-    LevelItem::HoleInFloor { len: 2 },
+    // LevelItem::HoleInFloor { len: 2 },
     LevelItem::NextCol { advance_by: 4 },
     LevelItem::Tile {
         tile: BRICK,

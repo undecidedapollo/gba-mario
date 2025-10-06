@@ -9,6 +9,7 @@ use mario::{
         self, AFFINE2_SCREENBLOCK_START, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START,
         TEXT_SCREENBLOCK_START,
     },
+    color::make_color,
     gba_warning,
     keys::FRAME_KEYS,
     level_manager::LevelManager,
@@ -34,6 +35,28 @@ extern "C" fn irq_handler(b: IrqBits) {
         // We'll read the keys during vblank and store it for later.
         FRAME_KEYS.write(KEYINPUT.read());
     }
+}
+
+fn darken_rgb15(color: Color, factor: i32fx8) -> Color {
+    let factor = if factor <= i32fx8::from_bits(0) {
+        i32fx8::wrapping_from(0)
+    } else if factor >= i32fx8::wrapping_from(1) {
+        i32fx8::wrapping_from(1)
+    } else {
+        factor
+    };
+    // Extract 5-bit channels
+    let r = i32fx8::wrapping_from((color.0 & 0x1F) as i32);
+    let g = i32fx8::wrapping_from(((color.0 >> 5) & 0x1F) as i32);
+    let b = i32fx8::wrapping_from(((color.0 >> 10) & 0x1F) as i32);
+
+    // Scale them down by your darkening factor (e.g., 0.7 = 70% brightness)
+    let r = ((r * factor).to_bits() >> 8) as u16;
+    let g = ((g * factor).to_bits() >> 8) as u16;
+    let b = ((b * factor).to_bits() >> 8) as u16;
+
+    // Repack into RGB15 format
+    make_color(r, g, b)
 }
 
 #[unsafe(no_mangle)]
@@ -93,11 +116,37 @@ extern "C" fn main() -> ! {
 
     let mut loop_counter: u32 = 0;
 
+    let magic_max = Color(0x127c);
+    let magic_1 = darken_rgb15(magic_max, i32fx8::from_bits(230));
+    let magic_2 = darken_rgb15(magic_max, i32fx8::from_bits(180));
+    let magic_3 = darken_rgb15(magic_max, i32fx8::from_bits(130));
+    let mut change_pixel = 0;
+
     loop {
         let tick_ctx = TickContext {
             tick_count: loop_counter,
         };
         loop_counter = loop_counter.wrapping_add(1);
+
+        if change_pixel == 0 {
+            BG_PALETTE.index(1).write(magic_max);
+        } else if change_pixel == 8 {
+            BG_PALETTE.index(1).write(magic_1);
+        } else if change_pixel == 16 {
+            BG_PALETTE.index(1).write(magic_2);
+        } else if change_pixel == 24 {
+            BG_PALETTE.index(1).write(magic_3);
+        } else if change_pixel == 32 {
+            BG_PALETTE.index(1).write(magic_2);
+        } else if change_pixel == 40 {
+            BG_PALETTE.index(1).write(magic_1);
+        } else if change_pixel == 48 {
+            BG_PALETTE.index(1).write(magic_max);
+        } else if change_pixel == 64 {
+            change_pixel = 0;
+        }
+        change_pixel += 1;
+
         // let new_x = orig_x.div(i16fx8::from_bits(val as i16));
         // let new_y = orig_y.div(i16fx8::from_bits(val as i16));
 

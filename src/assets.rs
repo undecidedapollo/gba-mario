@@ -3,7 +3,7 @@ use core::ptr::copy_nonoverlapping;
 use gba::{
     Align4, include_aligned_bytes,
     mmio::{BG_PALETTE, OBJ_ATTR_ALL, OBJ_PALETTE, TEXT_SCREENBLOCKS},
-    prelude::{ObjAttr, ObjDisplayStyle},
+    prelude::{ObjAttr, ObjAttrWriteExt, ObjDisplayStyle},
     video::Color,
 };
 
