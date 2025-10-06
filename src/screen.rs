@@ -39,7 +39,7 @@ impl ScreenManager {
         }
     }
 
-    pub fn init() {
+    pub fn on_start() {
         Screen.init();
     }
 

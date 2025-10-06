@@ -52,7 +52,7 @@ impl LevelManager {
 
     fn reset_internal(&mut self) {}
 
-    pub fn init() {
+    pub fn on_start() {
         Level.init();
     }
 

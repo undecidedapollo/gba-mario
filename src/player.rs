@@ -159,10 +159,6 @@ impl PlayerManager {
         }
     }
 
-    pub fn init() {
-        Player.init();
-    }
-
     pub fn on_start() {
         let _player = Player.get_or_init();
     }

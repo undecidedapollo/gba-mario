@@ -4,7 +4,7 @@ use crate::{
     assets::TEXT_SCREENBLOCK_START,
     color::PaletteColor,
     ewram_static,
-    ewramstring::EwramString,
+    fixed_string::FixedString,
     math::mod_mask_u32,
     screen_text::{ScreenTextManager, WriteTicket},
     static_init::StaticInitSafe,
@@ -28,10 +28,10 @@ unsafe impl StaticInitSafe for TopBarManager {
     }
 }
 
-ewram_static!(HIGHSCORE_STR: EwramString<5> = EwramString::new());
-ewram_static!(WORLD_STR: EwramString<3> = EwramString::new());
-ewram_static!(TIME_STR: EwramString<3> = EwramString::new());
-ewram_static!(Score: TopBarManager = TopBarManager::new());
+ewram_static!(HIGHSCORE_STR: FixedString<5> = FixedString::new());
+ewram_static!(WORLD_STR: FixedString<3> = FixedString::new());
+ewram_static!(TIME_STR: FixedString<3> = FixedString::new());
+ewram_static!(TopBar: TopBarManager = TopBarManager::new());
 
 const TIME_LOC: (usize, usize) = (26, 0);
 
@@ -106,21 +106,21 @@ impl TopBarManager {
     }
 
     pub fn reset(score: u32) {
-        Score.get_or_init().reset_internal(score);
+        TopBar.get_or_init().reset_internal(score);
     }
 
     pub fn reset_w_score() {
-        let manager = Score.get_or_init();
+        let manager = TopBar.get_or_init();
         manager.reset_internal(manager.score);
     }
 
     pub fn update_score(score: u32) {
-        let manager = Score.get_or_init();
+        let manager = TopBar.get_or_init();
         manager.new_score = Some(score);
     }
 
     pub fn add_to_score(score: u32) {
-        let manager = Score.get_or_init();
+        let manager = TopBar.get_or_init();
         let mut cur_score = manager.score + score;
         if let Some(ok) = manager.new_score {
             cur_score += ok;
@@ -129,7 +129,7 @@ impl TopBarManager {
     }
 
     pub fn tick(_tick_context: TickContext) {
-        let manager = Score.get_or_init();
+        let manager = TopBar.get_or_init();
 
         if manager.time > 0 && manager.time_tick >= 22 {
             manager.time -= 1;

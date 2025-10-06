@@ -61,6 +61,20 @@ impl ScreenTextManager {
         ScreenTextManager { char_free_bits: 0 }
     }
 
+    fn reset_internal(&mut self) {
+        self.char_free_bits = 0;
+        let zeros: [u32; 64] = core::array::repeat(0);
+        unsafe {
+            for idx in 0..16 {
+                copy_nonoverlapping(
+                    zeros.as_ptr(),
+                    CHARBLOCK1_4BPP.index((idx * 32) as usize + 1).as_usize() as *mut u32,
+                    zeros.len(),
+                );
+            }
+        }
+    }
+
     fn try_lock_first_zero(&mut self) -> Option<CharBlockTicket> {
         if self.char_free_bits == u16::MAX {
             return None;
@@ -138,5 +152,7 @@ impl ScreenTextManager {
 ewram_static!(screen: ScreenTextManager = ScreenTextManager::new());
 
 unsafe impl StaticInitSafe for ScreenTextManager {
-    // Uses default no-op init
+    fn init(&mut self) {
+        self.reset_internal();
+    }
 }

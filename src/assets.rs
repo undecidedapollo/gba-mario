@@ -1,11 +1,15 @@
 use core::ptr::copy_nonoverlapping;
 
 use gba::{
-    Align4, include_aligned_bytes,
+    Align4,
+    fixed::i32fx8,
+    include_aligned_bytes,
     mmio::{BG_PALETTE, OBJ_ATTR_ALL, OBJ_PALETTE, TEXT_SCREENBLOCKS},
     prelude::{ObjAttr, ObjAttrWriteExt, ObjDisplayStyle},
     video::Color,
 };
+
+use crate::{color::darken_rgb15, ewram_static, static_init::StaticInitSafe};
 
 pub static SHARED_PALETTE: Align4<[u8; 24]> = include_aligned_bytes!("../asset_out/shared.palette");
 
@@ -40,59 +44,112 @@ pub fn zero_screenblock(frame: usize) {
     }
 }
 
-pub fn reset_data() {
-    let mut ottr = ObjAttr::new();
-    ottr.0 = ottr.0.with_style(ObjDisplayStyle::NotDisplayed);
-    OBJ_ATTR_ALL.iter().for_each(|va| va.write(ottr));
+pub struct AssetManager {
+    change_magic: u8,
+}
 
-    // zero_screenblock(0);
-    // zero_screenblock(1);
-    // zero_screenblock(2);
-    // zero_screenblock(3);
+unsafe impl StaticInitSafe for AssetManager {
+    fn init(&mut self) {
+        self.reset_internal();
+    }
+}
 
-    // let zeros: [u32; 32] = core::array::repeat(0);
+ewram_static!(Asset: AssetManager = AssetManager::new());
 
-    // Make the zero-th tile transparent
-    unsafe {
-        // copy_nonoverlapping(
-        //     zeros.as_ptr(),
-        //     CHARBLOCK0_8BPP.index(0).as_usize() as *mut u32,
-        //     16,
-        // );
-        copy_nonoverlapping(
-            SHARED_PALETTE.0.as_ptr(),
-            OBJ_PALETTE.as_usize() as *mut u8,
-            SHARED_PALETTE.0.len(),
-        );
-        copy_nonoverlapping(
-            SHARED_PALETTE.0.as_ptr(),
-            BG_PALETTE.as_usize() as *mut u8,
-            SHARED_PALETTE.0.len(),
-        );
-        BG_PALETTE.index(0).write(Color(0x7E73));
-        let colors: [gba::video::Color; 16] = [
-            crate::color::TRANSPARENT, // Can't be accessed by the mapping function being used
-            crate::color::WHITE,
-            crate::color::RED,
-            crate::color::GREEN,
-            crate::color::BLUE,
-            crate::color::YELLOW,
-            crate::color::CYAN,
-            crate::color::MAGENTA,
-            crate::color::ORANGE,
-            crate::color::PURPLE,
-            crate::color::PINK,
-            crate::color::BROWN,
-            crate::color::GRAY,
-            crate::color::LIGHT_GRAY,
-            crate::color::DARK_GREEN,
-            crate::color::BLACK,
-        ];
-        copy_nonoverlapping(
-            colors.as_ptr(),
-            BG_PALETTE.index(16 * 15).as_usize() as *mut Color,
-            colors.len(),
-        );
-        // Cga8x8Thick.bitunpack_8bpp(CHARBLOCK1_8BPP.as_region(), 0);
+const COLOR_MAGIC_IDX: u16 = 1;
+const COLOR_MAGIC_MAX: Color = Color(0x127c);
+const COLOR_MAGIC_1: Color = darken_rgb15(COLOR_MAGIC_MAX, i32fx8::from_bits(230));
+const COLOR_MAGIC_2: Color = darken_rgb15(COLOR_MAGIC_MAX, i32fx8::from_bits(180));
+const COLOR_MAGIC_3: Color = darken_rgb15(COLOR_MAGIC_MAX, i32fx8::from_bits(130));
+
+impl AssetManager {
+    pub const fn new() -> Self {
+        AssetManager { change_magic: 0 }
+    }
+
+    pub fn on_start() {
+        Asset.init();
+    }
+
+    fn reset_internal(&mut self) {
+        self.change_magic = 0;
+        let mut ottr = ObjAttr::new();
+        ottr.0 = ottr.0.with_style(ObjDisplayStyle::NotDisplayed);
+        OBJ_ATTR_ALL.iter().for_each(|va| va.write(ottr));
+
+        // zero_screenblock(0);
+        // zero_screenblock(1);
+        // zero_screenblock(2);
+        // zero_screenblock(3);
+
+        // let zeros: [u32; 32] = core::array::repeat(0);
+
+        // Make the zero-th tile transparent
+        unsafe {
+            // copy_nonoverlapping(
+            //     zeros.as_ptr(),
+            //     CHARBLOCK0_8BPP.index(0).as_usize() as *mut u32,
+            //     16,
+            // );
+            copy_nonoverlapping(
+                SHARED_PALETTE.0.as_ptr(),
+                OBJ_PALETTE.as_usize() as *mut u8,
+                SHARED_PALETTE.0.len(),
+            );
+            copy_nonoverlapping(
+                SHARED_PALETTE.0.as_ptr(),
+                BG_PALETTE.as_usize() as *mut u8,
+                SHARED_PALETTE.0.len(),
+            );
+            BG_PALETTE.index(0).write(Color(0x7E73));
+            let colors: [gba::video::Color; 16] = [
+                crate::color::TRANSPARENT, // Can't be accessed by the mapping function being used
+                crate::color::WHITE,
+                crate::color::RED,
+                crate::color::GREEN,
+                crate::color::BLUE,
+                crate::color::YELLOW,
+                crate::color::CYAN,
+                crate::color::MAGENTA,
+                crate::color::ORANGE,
+                crate::color::PURPLE,
+                crate::color::PINK,
+                crate::color::BROWN,
+                crate::color::GRAY,
+                crate::color::LIGHT_GRAY,
+                crate::color::DARK_GREEN,
+                crate::color::BLACK,
+            ];
+            copy_nonoverlapping(
+                colors.as_ptr(),
+                BG_PALETTE.index(16 * 15).as_usize() as *mut Color,
+                colors.len(),
+            );
+            // Cga8x8Thick.bitunpack_8bpp(CHARBLOCK1_8BPP.as_region(), 0);
+        }
+    }
+
+    pub fn post_tick() {
+        let asset = Asset.get_or_init();
+
+        if asset.change_magic == 0 {
+            BG_PALETTE.index(1).write(COLOR_MAGIC_MAX);
+        } else if asset.change_magic == 8 {
+            BG_PALETTE.index(1).write(COLOR_MAGIC_1);
+        } else if asset.change_magic == 16 {
+            BG_PALETTE.index(1).write(COLOR_MAGIC_2);
+        } else if asset.change_magic == 24 {
+            BG_PALETTE.index(1).write(COLOR_MAGIC_3);
+        } else if asset.change_magic == 32 {
+            BG_PALETTE.index(1).write(COLOR_MAGIC_2);
+        } else if asset.change_magic == 40 {
+            BG_PALETTE.index(1).write(COLOR_MAGIC_1);
+        } else if asset.change_magic == 48 {
+            BG_PALETTE.index(1).write(COLOR_MAGIC_MAX);
+        } else if asset.change_magic == 64 {
+            asset.change_magic = 0;
+        }
+
+        asset.change_magic = asset.change_magic.wrapping_add(1);
     }
 }

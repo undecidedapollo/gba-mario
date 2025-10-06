@@ -1,4 +1,4 @@
-use gba::video::Color;
+use gba::{fixed::i32fx8, video::Color};
 
 pub const fn make_color(r: u16, g: u16, b: u16) -> Color {
     return Color(r | (g << 5) | (b << 10));
@@ -23,7 +23,7 @@ pub const LIGHT_GRAY: Color = make_color(24, 24, 24);
 pub const DARK_GREEN: Color = make_color(0, 15, 0);
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PaletteColor {
     Transparent = 0,
     White = 1,
@@ -41,4 +41,16 @@ pub enum PaletteColor {
     LightGray = 13,
     DarkGreen = 14,
     Black = 15,
+}
+
+pub const fn darken_rgb15(color: Color, factor: i32fx8) -> Color {
+    let r = i32fx8::wrapping_from((color.0 & 0x1F) as i32);
+    let g = i32fx8::wrapping_from(((color.0 >> 5) & 0x1F) as i32);
+    let b = i32fx8::wrapping_from(((color.0 >> 10) & 0x1F) as i32);
+
+    let r = (r.mul(factor).to_bits() >> 8) as u16;
+    let g = (g.mul(factor).to_bits() >> 8) as u16;
+    let b = (b.mul(factor).to_bits() >> 8) as u16;
+
+    make_color(r, g, b)
 }

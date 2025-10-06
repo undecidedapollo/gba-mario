@@ -98,7 +98,7 @@ pub const LEVEL_1_1_DATA: &[LevelItem] = &[
     LevelItem::NextCol { advance_by: 1 },
     LevelItem::Tile {
         tile: BRICK,
-        row: from_floor(6),
+        row: from_floor(7),
         len: 1,
     },
     LevelItem::NextCol { advance_by: 1 },
