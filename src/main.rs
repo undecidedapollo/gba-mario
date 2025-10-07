@@ -6,18 +6,15 @@ use core::{fmt::Write, ptr::copy_nonoverlapping};
 use gba::prelude::*;
 use mario::{
     assets::{
-        self, AFFINE2_SCREENBLOCK_START, AssetManager, BACKGROUND_TILES, COIN_TILE,
-        COIN_TILE_IDX_START, TEXT_SCREENBLOCK_START,
+        AFFINE2_SCREENBLOCK_START, AssetManager, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START,
+        TEXT_SCREENBLOCK_START,
     },
-    color::make_color,
     gba_warning,
-    keys::FRAME_KEYS,
+    keys::KeysManager,
     level_manager::LevelManager,
-    levels::shared::{PIPE_BODY_LEFT, PIPE_BODY_RIGHT, PIPE_TOP_LEFT, PIPE_TOP_RIGHT},
     logger,
     player::PlayerManager,
     screen::ScreenManager,
-    static_init::StaticInitSafe,
     tick::TickContext,
     topbar::TopBarManager,
 };
@@ -32,10 +29,11 @@ fn panic_handler(info: &core::panic::PanicInfo) -> ! {
 
 #[unsafe(link_section = ".iwram")]
 extern "C" fn irq_handler(b: IrqBits) {
-    if b.vblank() {
-        // We'll read the keys during vblank and store it for later.
-        FRAME_KEYS.write(KEYINPUT.read());
-    }
+    // if b.vblank() {
+    //     // We'll read the keys during vblank and store it for later.
+    //     PREV_KEYS.write(FRAME_KEYS.read());
+    //     FRAME_KEYS.write(KEYINPUT.read());
+    // }
 }
 
 #[unsafe(no_mangle)]
@@ -95,12 +93,13 @@ extern "C" fn main() -> ! {
     let mut loop_counter: u32 = 0;
 
     loop {
+        VBlankIntrWait();
+        let keys = KeysManager::on_vblank();
         let tick_ctx = TickContext {
             tick_count: loop_counter,
+            keys,
         };
         loop_counter = loop_counter.wrapping_add(1);
-
-        VBlankIntrWait();
 
         TIMER0_RELOAD.write(0);
         TIMER1_RELOAD.write(0);
@@ -110,6 +109,7 @@ extern "C" fn main() -> ! {
                 .with_scale(TimerScale::_1),
         );
         TIMER1_CONTROL.write(TimerControl::new().with_enabled(true).with_cascade(true));
+
         LevelManager::tick(tick_ctx);
         PlayerManager::tick(tick_ctx);
         TopBarManager::tick(tick_ctx);

@@ -5,10 +5,9 @@ use gba::prelude::*;
 use crate::{
     assets::{MARIO_TILE, MARIO_TILE_IDX_START},
     ewram_static,
-    keys::FRAME_KEYS,
+    keys::KeysManager,
     level_manager::LevelManager,
     math::mod_mask_u32,
-    obj::VolAddressExt,
     screen::{ScreenInfo, ScreenManager},
     static_init::StaticInitSafe,
     tick::TickContext,
@@ -185,9 +184,7 @@ impl PlayerManager {
         }
     }
 
-    fn default_movement_handler(&mut self, screen: ScreenInfo) {
-        let keys = FRAME_KEYS.read();
-
+    fn default_movement_handler(&mut self, tick_context: TickContext, screen: ScreenInfo) {
         let is_player_sorta_to_the_right = mod_mask_u32(
             (self.player_x.to_bits() >> 8) as u32,
             crate::math::Powers::_8,
@@ -213,11 +210,12 @@ impl PlayerManager {
         let collide_left = left_air & mask_body != 0;
         let collide_right = right_air & mask_body != 0;
 
-        let is_new_direction_opposite_cur_dir = keys.left() && self.vel_x > i32fx8::default()
-            || keys.right() && self.vel_x < i32fx8::default();
+        let is_new_direction_opposite_cur_dir = tick_context.keys.left()
+            && self.vel_x > i32fx8::default()
+            || tick_context.keys.right() && self.vel_x < i32fx8::default();
 
-        let is_fast_enough_run = keys.b()
-            && (keys.left() || keys.right())
+        let is_fast_enough_run = tick_context.keys.b()
+            && (tick_context.keys.left() || tick_context.keys.right())
             && !is_new_direction_opposite_cur_dir
             && self.vel_x.abs() > i32fx8::wrapping_from(1);
 
@@ -230,7 +228,7 @@ impl PlayerManager {
             };
 
             let mut need_dec_vel_y = true;
-            if keys.a() {
+            if tick_context.keys.a() {
                 let max_tick = if is_fast_enough_run { 24 } else { 18 };
                 if self.next_anim_tick < max_tick {
                     self.next_anim_tick += 1;
@@ -253,7 +251,10 @@ impl PlayerManager {
         } else if self.is_vertically_stationary() {
             self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32 + 1);
             self.vel_y = i32fx8::wrapping_from(0);
-            if keys.a() {
+            if tick_context
+                .keys
+                .is_just_pressed(KeyInput::new().with_a(true))
+            {
                 self.next_anim_tick = 0;
                 self.vel_y = i32fx8::from_bits(if is_fast_enough_run { -1200 } else { -1100 });
                 self.player_y = self.player_y.add(self.vel_y);
@@ -270,20 +271,20 @@ impl PlayerManager {
             i32fx8::from_bits(1 << 4)
         };
 
-        let max_x_speed = if keys.b() {
+        let max_x_speed = if tick_context.keys.b() {
             i32fx8::from_bits((1 << 9) + (1 << 8))
         } else {
             i32fx8::from_bits(1 << 9)
         };
 
         let mut stopping_conditions: bool = false;
-        if collide_left && (self.is_moving_left() || keys.left()) {
+        if collide_left && (self.is_moving_left() || tick_context.keys.left()) {
             self.vel_x = i32fx8::default();
             self.player_x = i32fx8::wrapping_from((self.col() << 3) as i32);
-        } else if collide_right && (self.is_moving_right() || keys.right()) {
+        } else if collide_right && (self.is_moving_right() || tick_context.keys.right()) {
             self.vel_x = i32fx8::default();
             self.player_x = i32fx8::wrapping_from((self.col() << 3) as i32 + 2);
-        } else if keys.left() {
+        } else if tick_context.keys.left() {
             let was_above_min = self.vel_x >= -max_x_speed;
             if was_above_min {
                 self.vel_x = self.vel_x.sub(x_mod_on_move);
@@ -295,7 +296,7 @@ impl PlayerManager {
                     stopping_conditions = true;
                 }
             }
-        } else if keys.right() {
+        } else if tick_context.keys.right() {
             let was_below_max = self.vel_x <= max_x_speed;
             if was_below_max {
                 self.vel_x = self.vel_x.add(x_mod_on_move);
@@ -330,8 +331,8 @@ impl PlayerManager {
             self.vel_y = i32fx8::from_bits(-max_y_speed);
         }
 
-        let is_walking_animation_valid_horizontally: bool =
-            !self.is_horizontally_stationary() || (keys.left() || keys.right());
+        let is_walking_animation_valid_horizontally: bool = !self.is_horizontally_stationary()
+            || (tick_context.keys.left() || tick_context.keys.right());
 
         if collision_bottom
             && is_walking_animation_valid_horizontally
@@ -385,9 +386,11 @@ impl PlayerManager {
             self.next_anim_tick = 0;
         }
 
-        if self.is_moving_left() {
+        let tile = self.get_tile();
+
+        if self.is_moving_left() && tile != MarioAnimationTileIdx::Jumping1 {
             self.facing_dir = false;
-        } else if self.is_moving_right() {
+        } else if self.is_moving_right() && tile != MarioAnimationTileIdx::Jumping1 {
             self.facing_dir = true;
         }
     }
@@ -399,7 +402,7 @@ impl PlayerManager {
         if manager.get_tile() == MarioAnimationTileIdx::DieState {
             manager.die_state_handler();
         } else {
-            manager.default_movement_handler(screen);
+            manager.default_movement_handler(tick_context, screen);
         }
 
         let middle_screen_px = screen.affn_x.add(i32fx8::wrapping_from(10 * 8));
