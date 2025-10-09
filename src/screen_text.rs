@@ -7,23 +7,20 @@ use gba::{
 };
 use voladdress::{Safe, VolAddress};
 
-use crate::{color::PaletteColor, ewram_static, static_init::StaticInitSafe};
+use crate::{color::PaletteColor, ewram_static, gba_warning, static_init::StaticInitSafe};
 
-struct CharBlockTicket {
+pub struct CharBlockTicket {
     idx: u16,
     ticket: u16,
 }
 
-pub struct WriteTicket {
-    pub ticket: u16,
-}
-
-impl WriteTicket {
+impl CharBlockTicket {
     pub fn forever(self) {
         core::mem::forget(self);
     }
 
     pub fn clear(&mut self) {
+        gba_warning!("Clearing CharBlockTicket idx {}", self.idx);
         screen.get_or_init().unlock(self.ticket);
         while let idx = self.ticket.trailing_zeros() as u16
             && idx != 16
@@ -46,9 +43,125 @@ impl WriteTicket {
     }
 }
 
-impl Drop for WriteTicket {
+impl Drop for CharBlockTicket {
     fn drop(&mut self) {
         self.clear();
+    }
+}
+
+pub struct TextPalette<const N: usize> {
+    chars: [char; 32],
+    ticket: CharBlockTicket,
+    slots: [Option<TextHandle>; N],
+}
+
+pub struct TextHandle {
+    screenblock_idx: usize,
+    loc: (usize, usize),
+    len: usize,
+}
+
+impl TextHandle {
+    pub fn clear(&mut self) {
+        gba_warning!("Clearing texthandle");
+
+        let Some(menu) = TEXT_SCREENBLOCKS.get_frame(self.screenblock_idx) else {
+            return;
+        };
+
+        for idx in 0..self.len {
+            let x = self.loc.0 + idx;
+            let y = self.loc.1;
+            if x >= 30 {
+                break;
+            }
+
+            if let Some(text_entry_spot) = menu.get(x, y) {
+                text_entry_spot.write(TextEntry::new());
+            }
+        }
+    }
+}
+
+impl<const N: usize> TextPalette<N> {
+    pub fn new(input: &str, ticket: CharBlockTicket, color: PaletteColor) -> Self {
+        let base_tile_idx = (ticket.idx * 32) as usize + 1;
+        let cb: VolAddress<[u32; 8], Safe, Safe> = CHARBLOCK1_4BPP.index(base_tile_idx);
+
+        let mut chars = [' '; 32];
+        let mut tmp: [u32; 64] = core::array::repeat(0);
+        for (idx, ch) in input.chars().enumerate().take(32) {
+            chars[idx] = ch;
+            let base_idx = idx * 2;
+            let base_char = ch as usize * 2;
+            tmp[base_idx] = CGA_8X8_THICK[base_char];
+            tmp[base_idx + 1] = CGA_8X8_THICK[base_char + 1];
+            let info = gba::bios::BitUnpackInfo {
+                src_byte_len: size_of_val(&tmp) as u16,
+                src_elem_width: 1,
+                dest_elem_width: 4,
+                offset_and_touch_zero: (color as u8).saturating_sub(1) as u32,
+            };
+            unsafe {
+                gba::bios::BitUnPack(tmp.as_ptr() as *const u8, cb.as_usize() as *mut u32, &info)
+            };
+        }
+        TextPalette {
+            chars,
+            ticket,
+            slots: [const { None }; N],
+        }
+    }
+
+    pub fn find_tile_idx(&self, ch: char) -> Option<u16> {
+        self.chars.iter().position(|&c| c == ch).map(|i| {
+            let base_tile_idx = (self.ticket.idx * 32) as usize + 1;
+            (base_tile_idx + i) as u16
+        })
+    }
+
+    pub fn write_text<'a>(
+        &'a mut self,
+        slot: usize,
+        screenblock_idx: usize,
+        str: &str,
+        loc: (usize, usize),
+        clear_first: bool,
+    ) -> Option<&'a TextHandle> {
+        let menu = TEXT_SCREENBLOCKS.get_frame(screenblock_idx)?;
+
+        for (idx, ch) in str.chars().into_iter().take(32).enumerate() {
+            if loc.0 + idx >= 30 {
+                break;
+            }
+
+            menu.index(loc.0 + idx, loc.1).write(
+                TextEntry::new()
+                    .with_tile(self.find_tile_idx(ch)?)
+                    .with_palbank(15),
+            );
+        }
+
+        self.slots.get_mut(slot).and_then(|s| {
+            if s.is_some() {
+                if clear_first {
+                    s.take().map(|mut x| x.clear());
+                }
+            }
+            s.replace(TextHandle {
+                screenblock_idx,
+                loc,
+                len: str.len().min(32),
+            })
+        });
+        self.slots.get(slot).and_then(|s| s.as_ref())
+    }
+
+    pub fn clear_text(&mut self, slot: usize) {
+        if let Some(Some(handle)) = self.slots.get_mut(slot) {
+            handle.clear();
+            self.slots[slot] = None;
+        }
     }
 }
 
@@ -94,58 +207,10 @@ impl ScreenTextManager {
         screen.get_or_init().unlock(0xFFFF);
     }
 
-    pub fn write_text(
-        screenblock_idx: usize,
-        str: &str,
-        loc: (usize, usize),
-        color: PaletteColor,
-        overflow: bool,
-    ) -> Option<WriteTicket> {
+    pub fn create_palette<const N: usize>(chars: &str, color: PaletteColor) -> TextPalette<N> {
         let manager = screen.get_or_init();
         let tile_idx = manager.try_lock_first_zero().unwrap();
-        let mut base_tile_idx = (tile_idx.idx * 32) as usize + 1;
-        let cb: VolAddress<[u32; 8], Safe, Safe> = CHARBLOCK1_4BPP.index(base_tile_idx);
-        let menu = TEXT_SCREENBLOCKS.get_frame(screenblock_idx)?;
-
-        // assert!(b.len() >= 256);
-        let mut tmp: [u32; 64] = core::array::repeat(0);
-        for (idx, ch) in str.chars().into_iter().take(32).enumerate() {
-            let mut x = loc.0 + idx;
-            let mut y = loc.1;
-            if x >= 30 {
-                if !overflow {
-                    break;
-                }
-                x -= 30;
-                y += 1;
-            }
-
-            if let Some(text_entry_spot) = menu.get(x, y) {
-                text_entry_spot.write(
-                    TextEntry::new()
-                        .with_tile(base_tile_idx as u16)
-                        .with_palbank(15),
-                );
-            }
-            let base_idx = idx * 2;
-            let base_char = ch as usize * 2;
-            tmp[base_idx] = CGA_8X8_THICK[base_char];
-            tmp[base_idx + 1] = CGA_8X8_THICK[base_char + 1];
-            base_tile_idx += 1;
-        }
-        // let src = unsafe { CGA_8X8_THICK.as_ptr().add((char * 2) as usize) };
-        let info = gba::bios::BitUnpackInfo {
-            src_byte_len: size_of_val(&tmp) as u16,
-            src_elem_width: 1,
-            dest_elem_width: 4,
-            offset_and_touch_zero: (color as u8).saturating_sub(1) as u32,
-        };
-        unsafe {
-            gba::bios::BitUnPack(tmp.as_ptr() as *const u8, cb.as_usize() as *mut u32, &info)
-        };
-        Some(WriteTicket {
-            ticket: tile_idx.ticket,
-        })
+        TextPalette::new(chars, tile_idx, color)
     }
 }
 

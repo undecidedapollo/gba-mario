@@ -56,7 +56,6 @@ unsafe impl StaticInitSafe for AssetManager {
 
 ewram_static!(Asset: AssetManager = AssetManager::new());
 
-const COLOR_MAGIC_IDX: u16 = 1;
 const COLOR_MAGIC_MAX: Color = Color(0x127c);
 const COLOR_MAGIC_1: Color = darken_rgb15(COLOR_MAGIC_MAX, i32fx8::from_bits(230));
 const COLOR_MAGIC_2: Color = darken_rgb15(COLOR_MAGIC_MAX, i32fx8::from_bits(180));

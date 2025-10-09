@@ -5,8 +5,7 @@ use crate::{
     color::PaletteColor,
     ewram_static,
     fixed_string::FixedString,
-    math::mod_mask_u32,
-    screen_text::{ScreenTextManager, WriteTicket},
+    screen_text::{ScreenTextManager, TextPalette},
     static_init::StaticInitSafe,
     tick::TickContext,
 };
@@ -16,10 +15,7 @@ pub struct TopBarManager {
     pub time: u16,
     pub time_tick: u8,
     new_score: Option<u32>,
-    score_handle: Option<WriteTicket>,
-    coin_handle: Option<WriteTicket>,
-    world_handle: Option<WriteTicket>,
-    time_handle: Option<WriteTicket>,
+    palette_handle: Option<TextPalette<4>>,
 }
 
 unsafe impl StaticInitSafe for TopBarManager {
@@ -42,10 +38,7 @@ impl TopBarManager {
             time: 400,
             time_tick: 0,
             new_score: Some(0),
-            score_handle: None,
-            coin_handle: None,
-            world_handle: None,
-            time_handle: None,
+            palette_handle: None,
         }
     }
 
@@ -54,53 +47,51 @@ impl TopBarManager {
         self.time_tick = 0;
         self.new_score = None;
         self.score = score;
+        self.palette_handle = Some(ScreenTextManager::create_palette(
+            "0123456789-Cx ",
+            PaletteColor::White,
+        ));
         self.write_score();
         self.write_time();
 
-        ScreenTextManager::write_text(
+        self.palette_handle.as_mut().unwrap().write_text(
+            0,
             TEXT_SCREENBLOCK_START,
             "Cx00",
             (10, 0),
-            PaletteColor::White,
             false,
-        )
-        .map(|x| x.forever());
-
-        ScreenTextManager::write_text(
+        );
+        self.palette_handle.as_mut().unwrap().write_text(
+            1,
             TEXT_SCREENBLOCK_START,
             "1-1",
             (18, 0),
-            PaletteColor::White,
             false,
-        )
-        .map(|x| x.forever());
+        );
     }
 
     fn write_score(&mut self) {
-        self.score_handle.take();
         let str = HIGHSCORE_STR.get_or_init();
         str.clear();
         write!(str, "{:0>5}", self.score).unwrap();
-        let start_idx = 30 - str.len;
-        self.score_handle = ScreenTextManager::write_text(
+        self.palette_handle.as_mut().unwrap().write_text(
+            2,
             TEXT_SCREENBLOCK_START,
             str.as_str(),
             (1, 0),
-            PaletteColor::White,
             false,
         );
     }
 
     fn write_time(&mut self) {
-        self.time_handle.take();
         let str = TIME_STR.get_or_init();
         str.clear();
         write!(str, "{:0>3}", self.time).unwrap();
-        self.time_handle = ScreenTextManager::write_text(
+        self.palette_handle.as_mut().unwrap().write_text(
+            3,
             TEXT_SCREENBLOCK_START,
             str.as_str(),
             TIME_LOC,
-            PaletteColor::White,
             false,
         );
     }

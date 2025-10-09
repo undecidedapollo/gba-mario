@@ -1,6 +1,3 @@
-use core::iter::FilterMap;
-use core::slice;
-
 #[derive(Clone)]
 pub struct FixedBag<T: Clone, const N: usize> {
     items: [Option<T>; N],

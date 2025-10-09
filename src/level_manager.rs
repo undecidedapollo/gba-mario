@@ -1,7 +1,6 @@
 use core::ops::Add;
 
 use gba::prelude::*;
-use rand_xoshiro::rand_core::le;
 
 use crate::{
     ewram_static,

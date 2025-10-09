@@ -5,7 +5,6 @@ use gba::prelude::*;
 use crate::{
     assets::{MARIO_TILE, MARIO_TILE_IDX_START},
     ewram_static,
-    keys::KeysManager,
     level_manager::LevelManager,
     math::mod_mask_u32,
     screen::{ScreenInfo, ScreenManager},

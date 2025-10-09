@@ -28,7 +28,7 @@ fn panic_handler(info: &core::panic::PanicInfo) -> ! {
 }
 
 #[unsafe(link_section = ".iwram")]
-extern "C" fn irq_handler(b: IrqBits) {
+extern "C" fn irq_handler(_b: IrqBits) {
     // if b.vblank() {
     //     // We'll read the keys during vblank and store it for later.
     //     PREV_KEYS.write(FRAME_KEYS.read());
