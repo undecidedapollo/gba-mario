@@ -1,10 +1,14 @@
-use core::fmt::Write;
+use core::{fmt::Write, ops::Deref};
+
+use gba::mmio::TIMER0_COUNT;
 
 use crate::{
     assets::TEXT_SCREENBLOCK_START,
     color::PaletteColor,
     ewram_static,
     fixed_string::FixedString,
+    fmt::{to_dec_u16, to_dec_u32},
+    gba_warning,
     screen_text::{ScreenTextManager, TextPalette},
     static_init::StaticInitSafe,
     tick::TickContext,
@@ -73,11 +77,12 @@ impl TopBarManager {
     fn write_score(&mut self) {
         let str = HIGHSCORE_STR.get_or_init();
         str.clear();
-        write!(str, "{:0>5}", self.score).unwrap();
+        let buf = to_dec_u32::<6>(self.score);
+        let s = unsafe { core::str::from_utf8_unchecked(&buf) };
         self.palette_handle.as_mut().unwrap().write_text(
             2,
             TEXT_SCREENBLOCK_START,
-            str.as_str(),
+            s,
             (1, 0),
             false,
         );
@@ -86,11 +91,11 @@ impl TopBarManager {
     fn write_time(&mut self) {
         let str = TIME_STR.get_or_init();
         str.clear();
-        write!(str, "{:0>3}", self.time).unwrap();
+        let s = to_dec_u16::<3>(self.time);
         self.palette_handle.as_mut().unwrap().write_text(
             3,
             TEXT_SCREENBLOCK_START,
-            str.as_str(),
+            &s,
             TIME_LOC,
             false,
         );
@@ -124,6 +129,7 @@ impl TopBarManager {
 
         if manager.time > 0 && manager.time_tick >= 22 {
             manager.time -= 1;
+            manager.new_score = Some(manager.score.saturating_add(50));
             manager.time_tick = 0;
             manager.write_time();
         } else {

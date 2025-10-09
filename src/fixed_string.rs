@@ -23,7 +23,10 @@ impl<const N: usize> FixedString<N> {
 
     pub fn from_str(s: &str) -> Self {
         let mut fs = Self::new();
-        let _ = write!(fs, "{}", s);
+        for b in s.as_bytes().iter().take(N) {
+            fs.buf.0[fs.len] = *b;
+            fs.len += 1;
+        }
         fs
     }
 

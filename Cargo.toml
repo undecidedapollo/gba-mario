@@ -22,7 +22,7 @@ panic = "abort"
 [profile.release]
 panic = "abort"
 debug = true
-opt-level = "z"
+opt-level = 3
 
 [profile.release-thin]
 inherits = "release"

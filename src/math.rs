@@ -1,3 +1,7 @@
+use core::ops::Deref;
+
+use crate::fixed_string::FixedString;
+
 #[repr(u16)]
 #[derive(Clone, Copy)]
 pub enum Powers {
@@ -46,4 +50,22 @@ pub mod masks {
         0b0111_1111,
         0b1111_1111,
     ];
+}
+
+#[inline(always)]
+pub fn div10_u32(n: u32) -> (u32, u32) {
+    // q = floor(n / 10) using reciprocal multiply: (n * 0xCCCCCCCD) >> 35
+    // 0xCCCCCCCD ≈ ceil(2^35 / 10)
+    let q = ((n as u64 * 0xCCCC_CCCD) >> 35) as u32;
+    let r = n - q * 10;
+    (q, r)
+}
+
+#[inline(always)]
+pub fn div10_u16(n: u16) -> (u16, u16) {
+    // From chat
+    // q = floor(n / 10) using reciprocal multiply: (n * 52429) >> 19
+    let q = ((n as u32 * 52429) >> 19) as u16;
+    let r = n - q * 10;
+    (q, r)
 }

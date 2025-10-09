@@ -1,7 +1,7 @@
 use core::ptr::copy_nonoverlapping;
 
 use gba::{
-    mmio::{CHARBLOCK1_4BPP, TEXT_SCREENBLOCKS},
+    mmio::{CHARBLOCK1_4BPP, TEXT_SCREENBLOCKS, TIMER0_COUNT},
     prelude::CGA_8X8_THICK,
     video::TextEntry,
 };
@@ -129,7 +129,6 @@ impl<const N: usize> TextPalette<N> {
         clear_first: bool,
     ) -> Option<&'a TextHandle> {
         let menu = TEXT_SCREENBLOCKS.get_frame(screenblock_idx)?;
-
         for (idx, ch) in str.chars().into_iter().take(32).enumerate() {
             if loc.0 + idx >= 30 {
                 break;
@@ -154,6 +153,7 @@ impl<const N: usize> TextPalette<N> {
                 len: str.len().min(32),
             })
         });
+
         self.slots.get(slot).and_then(|s| s.as_ref())
     }
 

@@ -7,6 +7,7 @@ pub mod color;
 pub mod fixed_bag;
 pub mod fixed_queue;
 pub mod fixed_string;
+pub mod fmt;
 pub mod keys;
 pub mod level_manager;
 pub mod levels;
