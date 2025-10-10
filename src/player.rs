@@ -4,8 +4,10 @@ use gba::prelude::*;
 
 use crate::{
     assets::{MARIO_TILE, MARIO_TILE_IDX_START},
-    ewram_static,
-    level_manager::LevelManager,
+    effects::{EffectsManager, TileBounceEffect},
+    ewram_static, gba_warning,
+    level_manager::{LevelManager, is_tile},
+    levels::shared::BRICK,
     math::mod_mask_u32,
     screen::{ScreenInfo, ScreenManager},
     static_init::StaticInitSafe,
@@ -158,7 +160,7 @@ impl PlayerManager {
     }
 
     pub fn on_start() {
-        let _player = Player.get_or_init();
+        Player.init();
     }
 
     fn die_state_handler(&mut self) {
@@ -247,6 +249,17 @@ impl PlayerManager {
         } else if collision_top && self.is_moving_up() {
             self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32);
             self.vel_y = i32fx8::wrapping_from(0);
+            let row = self.row().saturating_sub(2) as usize;
+            let col = (self.col() >> 1) as usize;
+            if is_tile(row, col, BRICK) {
+                gba_warning!("Bumped brick at {}, {}", row, col);
+                EffectsManager::add_effect(TileBounceEffect::new(row, col, BRICK).as_effect());
+            } else if is_tile(row, col + 1, BRICK) {
+                gba_warning!("Bumped brick at {}, {}", row, col + 1);
+                EffectsManager::add_effect(TileBounceEffect::new(row, col + 1, BRICK).as_effect());
+            } else {
+                gba_warning!("No brick at {}, {}", row, col);
+            }
         } else if self.is_vertically_stationary() {
             self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32 + 1);
             self.vel_y = i32fx8::wrapping_from(0);

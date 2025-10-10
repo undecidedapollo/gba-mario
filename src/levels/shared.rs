@@ -73,6 +73,10 @@ const fn from_floor(up_from_floor: usize) -> usize {
     (FLOOR - 1).saturating_sub(up_from_floor)
 }
 
+struct MultilayerSprint<const W: usize, const H: usize> {
+    tiles: [[Tile; W]; H],
+}
+
 pub const LEVEL_1_1_DATA: &[LevelItem] = &[
     LevelItem::NextCol {
         advance_by: SCREEN_WIDTH,

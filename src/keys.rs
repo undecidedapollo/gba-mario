@@ -28,8 +28,12 @@ impl KeysManager {
         self.prev_keys = KeyInput::new();
     }
 
+    pub fn on_start() {
+        Keys.init();
+    }
+
     pub fn on_vblank() -> KeysResponse {
-        let manager = Keys.get_or_init();
+        let manager = Keys.assume_init();
         manager.prev_keys = manager.frame_keys;
         manager.frame_keys = KEYINPUT.read();
         KeysResponse {
@@ -39,7 +43,7 @@ impl KeysManager {
     }
 
     pub fn keys() -> KeysResponse {
-        let manager = Keys.get_or_init();
+        let manager = Keys.assume_init();
         KeysResponse {
             keys: manager.frame_keys,
             prev_keys: manager.prev_keys,

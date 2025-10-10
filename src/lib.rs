@@ -4,6 +4,7 @@
 pub mod allocator;
 pub mod assets;
 pub mod color;
+pub mod effects;
 pub mod fixed_bag;
 pub mod fixed_queue;
 pub mod fixed_string;

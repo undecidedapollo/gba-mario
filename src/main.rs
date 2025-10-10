@@ -9,9 +9,11 @@ use mario::{
         AFFINE2_SCREENBLOCK_START, AssetManager, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START,
         TEXT_SCREENBLOCK_START,
     },
+    effects::{Effect, EffectsManager, TileBounceEffect},
     gba_warning,
     keys::KeysManager,
     level_manager::LevelManager,
+    levels::shared::BRICK,
     logger,
     player::PlayerManager,
     screen::ScreenManager,
@@ -72,10 +74,12 @@ extern "C" fn main() -> ! {
             .with_is_affine_wrapping(true),
     );
 
+    KeysManager::on_start();
     AssetManager::on_start();
     ScreenManager::on_start();
     PlayerManager::on_start();
     LevelManager::on_start();
+    EffectsManager::on_start();
 
     unsafe {
         copy_nonoverlapping(
@@ -113,11 +117,15 @@ extern "C" fn main() -> ! {
         LevelManager::tick(tick_ctx);
         PlayerManager::tick(tick_ctx);
         TopBarManager::tick(tick_ctx);
+        EffectsManager::tick(tick_ctx);
+
         ScreenManager::post_tick();
         AssetManager::post_tick();
+        EffectsManager::post_tick(tick_ctx);
+
         let after0 = TIMER0_COUNT.read();
         let after1 = TIMER1_COUNT.read();
-        gba_warning!("TIMER0: {after0}, TIMER1: {after1} TICK: {loop_counter}");
+        // gba_warning!("TIMER0: {after0}, TIMER1: {after1} TICK: {loop_counter}");
         TIMER0_CONTROL.write(TimerControl::new());
         TIMER1_CONTROL.write(TimerControl::new());
     }

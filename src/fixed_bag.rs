@@ -1,25 +1,24 @@
-#[derive(Clone)]
-pub struct FixedBag<T: Clone, const N: usize> {
+pub struct FixedBag<T, const N: usize> {
     items: [Option<T>; N],
 }
 
-impl<T: Clone, const N: usize> FixedBag<T, N> {
+impl<T, const N: usize> FixedBag<T, N> {
     pub const fn new() -> Self {
         FixedBag {
             items: [const { None }; N],
         }
     }
 
-    pub fn push(&mut self, item: T) -> usize {
+    pub fn push(&mut self, item: T) -> Result<usize, T> {
         let mut idx = 0;
         for slot in &mut self.items {
             if slot.is_none() {
                 *slot = Some(item);
-                return idx;
+                return Ok(idx);
             }
             idx += 1;
         }
-        panic!("FixedBag is full");
+        Err(item)
     }
 
     pub fn remove(&mut self, index: usize) {
@@ -54,6 +53,23 @@ impl<T: Clone, const N: usize> FixedBag<T, N> {
             .iter_mut()
             .enumerate()
             .filter_map(|(i, opt)| opt.as_mut().map(|t| (i, t)))
+    }
+
+    pub fn iter_mut_opt(&mut self) -> impl Iterator<Item = (usize, &mut Option<T>)> {
+        self.items
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, opt)| if opt.is_some() { Some((i, opt)) } else { None })
+    }
+
+    pub fn iter_filter(&mut self, mut keep: impl FnMut(&mut T) -> bool) {
+        for i in 0..N {
+            if let Some(item) = &mut self.items[i] {
+                if !keep(item) {
+                    self.items[i] = None;
+                }
+            }
+        }
     }
 
     pub fn get(&self, index: usize) -> Option<&T> {

@@ -29,6 +29,59 @@ pub struct LevelManager {
     queue_start: usize,
 }
 
+pub fn draw_tile(row: usize, col: usize, tile: Tile) {
+    AFFINE2_SCREENBLOCKS
+        .get_frame(16)
+        .unwrap()
+        .index(col, row)
+        .write(
+            u8x2::default()
+                .with_high(tile.top_right() as u8)
+                .with_low(tile.top_left() as u8),
+        );
+    AFFINE2_SCREENBLOCKS
+        .get_frame(16)
+        .unwrap()
+        .index(col, row + 1)
+        .write(
+            u8x2::default()
+                .with_high(tile.bottom_right() as u8)
+                .with_low(tile.bottom_left() as u8),
+        );
+}
+
+pub fn clear_tile(row: usize, col: usize) {
+    AFFINE2_SCREENBLOCKS
+        .get_frame(16)
+        .unwrap()
+        .index(col, row)
+        .write(u8x2::default().with_high(0).with_low(0));
+    AFFINE2_SCREENBLOCKS
+        .get_frame(16)
+        .unwrap()
+        .index(col, row + 1)
+        .write(u8x2::default().with_high(0).with_low(0));
+}
+
+pub fn is_tile(row: usize, mut col: usize, tile: Tile) -> bool {
+    col = mod_mask_u32(col as u32, Powers::_32) as usize;
+    let top = AFFINE2_SCREENBLOCKS
+        .get_frame(16)
+        .unwrap()
+        .index(col, row)
+        .read();
+    let bottom = AFFINE2_SCREENBLOCKS
+        .get_frame(16)
+        .unwrap()
+        .index(col, row + 1)
+        .read();
+
+    return top.low() as usize == tile.top_left()
+        && top.high() as usize == tile.top_right()
+        && bottom.low() as usize == tile.bottom_left()
+        && bottom.high() as usize == tile.bottom_right();
+}
+
 #[derive(Clone, Copy)]
 struct ManagedItem {
     item: LevelItem,
@@ -64,7 +117,7 @@ impl LevelManager {
             col = end;
         }
 
-        let manager = Level.get_or_init();
+        let manager = Level.assume_init();
         let diff_to_add = screen_details.onscreen_col_start - manager.queue_start as u16;
         let col_idx = col
             .saturating_sub(screen_details.onscreen_col_start)
@@ -75,27 +128,6 @@ impl LevelManager {
         }
 
         return 0;
-    }
-
-    fn draw_tile(&mut self, row: usize, col: usize, tile: Tile) {
-        AFFINE2_SCREENBLOCKS
-            .get_frame(16)
-            .unwrap()
-            .index(col, row)
-            .write(
-                u8x2::default()
-                    .with_high(tile.top_right() as u8)
-                    .with_low(tile.top_left() as u8),
-            );
-        AFFINE2_SCREENBLOCKS
-            .get_frame(16)
-            .unwrap()
-            .index(col, row + 1)
-            .write(
-                u8x2::default()
-                    .with_high(tile.bottom_right() as u8)
-                    .with_low(tile.bottom_left() as u8),
-            );
     }
 
     fn process_screen(&mut self) {
@@ -140,60 +172,60 @@ impl LevelManager {
 
             match background_col {
                 0 => {
-                    self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_UP);
+                    draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_UP);
                 }
                 1 => {
-                    self.draw_tile(from_floor(1), screenblock_col, MOUNTAIL_SLOPE_UP);
-                    self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
+                    draw_tile(from_floor(1), screenblock_col, MOUNTAIL_SLOPE_UP);
+                    draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
                 }
                 2 => {
-                    self.draw_tile(from_floor(2), screenblock_col, MOUNTAIL_TOP);
-                    self.draw_tile(from_floor(1), screenblock_col, MOUNTAIL_BUTTONS);
-                    self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_EMPTY);
+                    draw_tile(from_floor(2), screenblock_col, MOUNTAIL_TOP);
+                    draw_tile(from_floor(1), screenblock_col, MOUNTAIL_BUTTONS);
+                    draw_tile(from_floor(0), screenblock_col, MOUNTAIL_EMPTY);
                 }
                 3 => {
-                    self.draw_tile(from_floor(1), screenblock_col, MOUNTAIL_SLOPE_DOWN);
-                    self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
+                    draw_tile(from_floor(1), screenblock_col, MOUNTAIL_SLOPE_DOWN);
+                    draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
                 }
                 4 => {
-                    self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_DOWN);
+                    draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_DOWN);
                 }
                 11 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
                 }
                 12..=14 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
                 }
                 15 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
                 }
                 16 => {
-                    self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_UP);
+                    draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_UP);
                 }
                 17 => {
-                    self.draw_tile(from_floor(1), screenblock_col, MOUNTAIL_TOP);
-                    self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
+                    draw_tile(from_floor(1), screenblock_col, MOUNTAIL_TOP);
+                    draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
                 }
                 18 => {
-                    self.draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_DOWN);
+                    draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_DOWN);
                 }
                 23 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
                 }
                 24 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
                 }
                 25 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
                 }
                 41 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
                 }
                 42 | 43 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
                 }
                 44 => {
-                    self.draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
+                    draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
                 }
                 _ => {}
             };
@@ -216,52 +248,55 @@ impl LevelManager {
                 };
             }
 
-            for (idx, managed) in self.stack_of_renders.clone().iter() {
-                match managed.item {
+            for (idx, managed) in self.stack_of_renders.iter_mut_opt() {
+                let Some(inner) = managed else {
+                    continue;
+                };
+                match inner.item {
                     LevelItem::NextCol { .. } => {
                         // This shouldn't happen but just in case
-                        self.stack_of_renders.remove(idx);
+                        *managed = None;
                         continue;
                     }
                     LevelItem::Pipe { row } => {
                         let row = row << 1;
                         standable_mask |= 0b11 << row;
-                        if i as usize == managed.col_start {
-                            self.draw_tile(row, screenblock_col, PIPE_TOP_LEFT);
+                        if i as usize == inner.col_start {
+                            draw_tile(row, screenblock_col, PIPE_TOP_LEFT);
                         } else {
-                            self.draw_tile(row, screenblock_col, PIPE_TOP_RIGHT);
+                            draw_tile(row, screenblock_col, PIPE_TOP_RIGHT);
                         }
                         let diff = floor_bottom_for_col.saturating_sub(row + 2) >> 1;
                         for vert_row in 0..diff {
                             let row = (row + 2) + vert_row * 2;
                             standable_mask |= 0b11 << row;
-                            if i as usize == managed.col_start {
-                                self.draw_tile(row, screenblock_col, PIPE_BODY_LEFT);
+                            if i as usize == inner.col_start {
+                                draw_tile(row, screenblock_col, PIPE_BODY_LEFT);
                             } else {
-                                self.draw_tile(row, screenblock_col, PIPE_BODY_RIGHT);
+                                draw_tile(row, screenblock_col, PIPE_BODY_RIGHT);
                             }
                         }
 
-                        if i as usize != managed.col_start {
-                            self.stack_of_renders.remove(idx);
+                        if i as usize != inner.col_start {
+                            *managed = None;
                         }
                         continue;
                     }
                     LevelItem::Tile { len, row, tile } => {
                         let row = row << 1;
-                        let col_in_item = i as usize - managed.col_start;
+                        let col_in_item = i as usize - inner.col_start;
                         if col_in_item < len {
                             standable_mask |= 0b11 << row;
-                            self.draw_tile(row, screenblock_col, tile);
+                            draw_tile(row, screenblock_col, tile);
                         } else {
-                            self.stack_of_renders.remove(idx);
+                            *managed = None;
                         }
                     }
                     LevelItem::HoleInFloor { len } => {
-                        let col_in_item = i as usize - managed.col_start;
+                        let col_in_item = i as usize - inner.col_start;
 
                         if col_in_item >= len {
-                            self.stack_of_renders.remove(idx);
+                            *managed = None;
                         } else {
                             should_floor_be_visible = false;
                         }
@@ -274,8 +309,8 @@ impl LevelManager {
             {
                 let row = row << 1;
                 standable_mask |= 0b1111 << row;
-                self.draw_tile(row, screenblock_col, tile);
-                self.draw_tile(row + 2, screenblock_col, tile);
+                draw_tile(row, screenblock_col, tile);
+                draw_tile(row + 2, screenblock_col, tile);
             }
 
             // gba_warning!("Standable mask for col: {:032b}", standable_mask);
@@ -308,7 +343,7 @@ impl LevelManager {
     }
 
     pub fn tick(_tick: TickContext) {
-        let manager = Level.get_or_init();
+        let manager = Level.assume_init();
         if _tick.tick_count != 0 && _tick.tick_count % 10 == 0 {
             // ScreenManager::translate_x(i32fx8::wrapping_from(8));
         }

@@ -46,7 +46,7 @@ impl ScreenManager {
     fn reset_internal(&mut self) {}
 
     pub fn get_screen_info() -> ScreenInfo {
-        let screen = Screen.get_or_init();
+        let screen = Screen.assume_init();
         ScreenInfo {
             affn_x: screen.affn_x,
             affn_y: screen.affn_y,
@@ -55,12 +55,12 @@ impl ScreenManager {
     }
 
     pub fn translate_x(amount: i32fx8) {
-        let screen = Screen.get_or_init();
+        let screen = Screen.assume_init();
         screen.affn_x = screen.affn_x.add(amount);
     }
 
     pub fn translate(x: i32fx8, y: i32fx8) {
-        let screen = Screen.get_or_init();
+        let screen = Screen.assume_init();
         screen.affn_x = screen.affn_x.add(x);
         screen.affn_y = screen.affn_y.add(y);
         if screen.affn_y > i32fx8::wrapping_from(10 * 10) {
@@ -69,7 +69,7 @@ impl ScreenManager {
     }
 
     pub fn post_tick() {
-        let manager = Screen.get_or_init();
+        let manager = Screen.assume_init();
         // manager.affn_y = manager.affn_y.add(i32fx8::from_bits(8));
         BG2X.write(manager.affn_x);
         BG2Y.write(manager.affn_y);

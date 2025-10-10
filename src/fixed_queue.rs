@@ -1,11 +1,10 @@
-#[derive(Clone)]
-pub struct FixedQueue<T: Clone, const N: usize> {
+pub struct FixedQueue<T, const N: usize> {
     start_idx: usize,
     next_idx: usize,
     items: [Option<T>; N],
 }
 
-impl<T: Clone, const N: usize> FixedQueue<T, N> {
+impl<T, const N: usize> FixedQueue<T, N> {
     pub const fn new() -> Self {
         FixedQueue {
             items: [const { None }; N],
