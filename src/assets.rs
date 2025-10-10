@@ -12,7 +12,7 @@ use gba::{
 use crate::{
     color::darken_rgb15,
     ewram_static,
-    levels::shared::{BRICK, Tile},
+    levels::shared::{BRICK, QUESTION_BLOCK_USED, Tile},
     static_init::StaticInitSafe,
 };
 
@@ -23,10 +23,13 @@ pub static BACKGROUND_TILES: Align4<[u8; 10240]> =
 pub const BACKGROUND_TILE_COLS_PER_ROW: usize = 16;
 pub static COIN_TILE: Align4<[u8; 256]> = include_aligned_bytes!("../asset_out/coin.sprite");
 pub static MARIO_TILE: Align4<[u8; 2048]> = include_aligned_bytes!("../asset_out/mario.sprite");
+pub static POINT_TILE: Align4<[u8; 512]> = include_aligned_bytes!("../asset_out/score.sprite");
 
 pub const COIN_TILE_IDX_START: usize = 1;
 pub const MARIO_TILE_IDX_START: usize = COIN_TILE_IDX_START + COIN_TILE.0.len() / 64;
-pub const BRICK_IDX_START: usize = MARIO_TILE_IDX_START + MARIO_TILE.0.len() / 64;
+pub const POINT_TILE_IDX_START: usize = MARIO_TILE_IDX_START + MARIO_TILE.0.len() / 64;
+pub const BRICK_IDX_START: usize = POINT_TILE_IDX_START + POINT_TILE.0.len() / 64;
+pub const USED_BLOCK_IDX_START: usize = BRICK_IDX_START + 4;
 // Affine 2 is about the same size per stride as text, if we change affine background size (use something other than AFFINE2 we will need to change this)
 pub const AFFINE2_SCREENBLOCK_START: usize = 16; // 0x0600_8000
 pub const TEXT_SCREENBLOCK_START: usize = 24; // 0x0600_C000
@@ -170,7 +173,13 @@ impl AssetManager {
                 OBJ_TILES.index(MARIO_TILE_IDX_START * 2).as_usize() as *mut u8,
                 MARIO_TILE.0.len(),
             );
+            copy_nonoverlapping(
+                POINT_TILE.0.as_ptr(),
+                OBJ_TILES.index(POINT_TILE_IDX_START * 2).as_usize() as *mut u8,
+                POINT_TILE.0.len(),
+            );
             copy_tile(BRICK, BRICK_IDX_START);
+            copy_tile(QUESTION_BLOCK_USED, USED_BLOCK_IDX_START);
             // Cga8x8Thick.bitunpack_8bpp(CHARBLOCK1_8BPP.as_region(), 0);
         }
     }

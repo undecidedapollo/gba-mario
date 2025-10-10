@@ -63,7 +63,7 @@ pub fn clear_tile(row: usize, col: usize) {
         .write(u8x2::default().with_high(0).with_low(0));
 }
 
-pub fn is_tile(row: usize, mut col: usize, tile: Tile) -> bool {
+pub fn is_tile<const N: usize>(row: usize, mut col: usize, tiles: [Tile; N]) -> Option<Tile> {
     col = mod_mask_u32(col as u32, Powers::_32) as usize;
     let top = AFFINE2_SCREENBLOCKS
         .get_frame(16)
@@ -76,10 +76,17 @@ pub fn is_tile(row: usize, mut col: usize, tile: Tile) -> bool {
         .index(col, row + 1)
         .read();
 
-    return top.low() as usize == tile.top_left()
-        && top.high() as usize == tile.top_right()
-        && bottom.low() as usize == tile.bottom_left()
-        && bottom.high() as usize == tile.bottom_right();
+    for tile in tiles {
+        let is_tile = top.low() as usize == tile.top_left()
+            && top.high() as usize == tile.top_right()
+            && bottom.low() as usize == tile.bottom_left()
+            && bottom.high() as usize == tile.bottom_right();
+        if is_tile {
+            return Some(tile);
+        }
+    }
+
+    return None;
 }
 
 #[derive(Clone, Copy)]

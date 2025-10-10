@@ -37,6 +37,7 @@ const fn get_tile_idx(row: usize, col: usize) -> usize {
 
 pub static BRICK: Tile = Tile::new(get_tile_idx(0, 0));
 pub static QUESTION_BLOCK_UNUSED: Tile = Tile::new(get_tile_idx(0, 2));
+pub static QUESTION_BLOCK_USED: Tile = Tile::new(get_tile_idx(0, 3));
 pub static ROCK: Tile = Tile::new(get_tile_idx(0, 1));
 pub static PIPE_TOP_LEFT: Tile = Tile::new(get_tile_idx(0, 6));
 pub static PIPE_TOP_RIGHT: Tile = Tile::new(get_tile_idx(0, 7));
@@ -78,8 +79,14 @@ struct MultilayerSprint<const W: usize, const H: usize> {
 }
 
 pub const LEVEL_1_1_DATA: &[LevelItem] = &[
+    LevelItem::NextCol { advance_by: 4 },
+    LevelItem::Tile {
+        tile: QUESTION_BLOCK_UNUSED,
+        row: from_floor(3),
+        len: 4,
+    },
     LevelItem::NextCol {
-        advance_by: SCREEN_WIDTH,
+        advance_by: SCREEN_WIDTH - 4,
     },
     LevelItem::Tile {
         tile: QUESTION_BLOCK_UNUSED,

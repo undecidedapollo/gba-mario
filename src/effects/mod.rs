@@ -1,48 +1,22 @@
-use core::{
-    intrinsics::copy_nonoverlapping,
-    ops::{Add, Shl, Shr, Sub},
-    u16,
-};
+use core::ops::Shr;
 
 use gba::prelude::*;
 
 use crate::{
-    assets::BRICK_IDX_START,
+    effects::{coin_up::CoinUpEffect, points::PointEffect, tile_bounce::TileBounceEffect},
     ewram_static,
     fixed_bag::FixedBag,
     fixed_queue::FixedQueue,
     gba_warning,
-    level_manager::{clear_tile, draw_tile},
-    levels::shared::{BRICK, Tile},
-    screen::{ScreenInfo, ScreenManager},
+    math::mod_mask_u32,
+    screen::ScreenInfo,
     static_init::StaticInitSafe,
     tick::TickContext,
 };
 
-pub enum BounceEffectTile {
-    Brick,
-}
-
-impl BounceEffectTile {
-    fn obj_tile_id(&self) -> u16 {
-        (match self {
-            BounceEffectTile::Brick => BRICK_IDX_START * 2,
-        }) as u16
-    }
-
-    fn tile(&self) -> Tile {
-        match self {
-            BounceEffectTile::Brick => BRICK,
-        }
-    }
-}
-
-pub struct TileBounceEffect {
-    row: usize,
-    col: usize,
-    tile: BounceEffectTile,
-    otr: ObjAttr,
-}
+pub mod coin_up;
+pub mod points;
+pub mod tile_bounce;
 
 const ONE_HALF: i32fx8 = i32fx8::wrapping_from(1).div(i32fx8::wrapping_from(2));
 
@@ -71,97 +45,35 @@ pub fn tile_to_screenspace(row: usize, col: usize, screen: &ScreenInfo) -> (i32,
     (x, y)
 }
 
-impl TileBounceEffect {
-    pub fn new(row: usize, col: usize, tile: BounceEffectTile) -> Self {
-        TileBounceEffect {
-            row,
-            col,
-            tile,
-            otr: ObjAttr::default(),
-        }
-    }
-
-    pub fn as_effect(self) -> Effect {
-        Effect::TileBounce(self)
-    }
-
-    fn tick(&mut self, ctx: AnimationCtx) -> bool {
-        if ctx.animation_tick >= 8 {
-            draw_tile(self.row, self.col, self.tile.tile());
-            OBJ_ATTR_ALL.index(1).write(ObjAttr::default());
-            return false;
-        }
-
-        if ctx.animation_tick == 0 {
-            let mut otr = ObjAttr::new();
-            otr.set_x(32);
-            otr.set_y(32);
-            otr.set_style(ObjDisplayStyle::Affine);
-            otr.0 = otr
-                .0
-                .with_shape(ObjShape::Square)
-                .with_mode(ObjEffectMode::Normal)
-                .with_bpp8(true);
-            otr.1 = otr.1.with_size(1).with_affine_index(0);
-            otr.2 = otr
-                .2
-                .with_tile_id(self.tile.obj_tile_id())
-                .with_priority(0)
-                .with_palbank(0);
-            self.otr = otr;
-            clear_tile(self.row, self.col);
-        }
-
-        return true;
-    }
-
-    fn is_duplicate(&self, other: &Self) -> bool {
-        self.row == other.row && self.col == other.col
-    }
-
-    fn post_tick(&mut self, ctx: AnimationCtx) {
-        let screen = ScreenManager::get_screen_info();
-        let (x, base_y) = tile_to_screenspace(self.row, self.col, &screen);
-
-        self.otr.set_x(x.clamp(-60, 240) as u16);
-
-        let offset = 4 - (ctx.animation_tick as i32 - 4).abs();
-        self.otr
-            .set_y(base_y.saturating_sub(offset).clamp(0, 256) as u16);
-
-        // gba_warning!(
-        //     "{} {} {} {} {} {}",
-        //     self.col * 2,
-        //     screen.onscreen_col_start,
-        //     (self.col * 2 - screen.onscreen_col_start as usize),
-        //     (self.col * 2 - screen.onscreen_col_start as usize) * 8,
-        //     difference,
-        //     x
-        // );
-        OBJ_ATTR_ALL.index(1).write(self.otr);
-    }
-}
-
 pub enum Effect {
     TileBounce(TileBounceEffect),
+    CoinUp(CoinUpEffect),
+    Points(PointEffect),
 }
 
 impl Effect {
     pub fn tick(&mut self, ctx: AnimationCtx) -> bool {
         match self {
             Effect::TileBounce(effect) => effect.tick(ctx),
+            Effect::CoinUp(effect) => effect.tick(ctx),
+            Effect::Points(effect) => effect.tick(ctx),
         }
     }
 
     pub fn post_tick(&mut self, ctx: AnimationCtx) {
         match self {
             Effect::TileBounce(effect) => effect.post_tick(ctx),
+            Effect::CoinUp(effect) => effect.post_tick(ctx),
+            Effect::Points(effect) => effect.post_tick(ctx),
         }
     }
 
     pub fn is_same_type_and_position(&self, other: &Effect) -> bool {
         match (self, other) {
             (Effect::TileBounce(a), Effect::TileBounce(b)) => a.is_duplicate(b),
+            (Effect::CoinUp(a), Effect::CoinUp(b)) => a.is_duplicate(b),
+            (Effect::Points(a), Effect::Points(b)) => a.is_duplicate(b),
+            _ => false,
         }
     }
 }
@@ -198,7 +110,7 @@ impl AnimationEffect {
 
 pub struct EffectsManager {
     active_effects: FixedBag<AnimationEffect, 8>,
-    pending_effects: FixedQueue<Effect, 4>,
+    pending_effects: FixedQueue<AnimationEffect, 4>,
 }
 
 impl EffectsManager {
@@ -213,6 +125,10 @@ impl EffectsManager {
         for (_, opt) in self.active_effects.iter_mut_opt() {
             *opt = None;
         }
+        AFFINE_PARAM_A.index(1).write(i16fx8::from_bits(1 << 8));
+        AFFINE_PARAM_B.index(1).write(i16fx8::from_bits(0));
+        AFFINE_PARAM_C.index(1).write(i16fx8::from_bits(0));
+        AFFINE_PARAM_D.index(1).write(i16fx8::from_bits(1 << 8));
     }
 
     pub fn on_start() {
@@ -221,10 +137,22 @@ impl EffectsManager {
 
     pub fn tick(_tick: TickContext) {
         let manager: &mut EffectsManager = Effects.assume_init();
-        while let Some(effect) = manager.pending_effects.pop() {
+        for _ in 0..manager.pending_effects.len() {
+            let Some(effect) = manager.pending_effects.pop() else {
+                break;
+            };
+            if effect.tick_start > 0 {
+                gba_warning!("Delaying effect by 1 tick: {}", effect.tick_start);
+                manager.pending_effects.push_pop(AnimationEffect {
+                    tick_start: effect.tick_start.saturating_sub(1),
+                    effect: effect.effect,
+                });
+                continue;
+            }
+
             let anim_effect = AnimationEffect {
                 tick_start: _tick.tick_count,
-                effect,
+                effect: effect.effect,
             };
 
             let is_matching_pos = manager.active_effects.iter().any(|(_idx, active_effect)| {
@@ -239,7 +167,7 @@ impl EffectsManager {
 
             if let Err(effect) = manager.active_effects.push(anim_effect) {
                 // No space, put it back
-                manager.pending_effects.push_pop(effect.effect);
+                manager.pending_effects.push_pop(effect);
                 break;
             }
         }
@@ -251,15 +179,34 @@ impl EffectsManager {
 
     pub fn post_tick(_tick: TickContext) {
         let manager: &mut EffectsManager = Effects.assume_init();
-        manager
-            .active_effects
-            .iter_mut()
-            .for_each(|effect| effect.1.post_tick(&_tick));
+        let mut has_effects = false;
+        manager.active_effects.iter_mut().for_each(|effect| {
+            has_effects = true;
+            effect.1.post_tick(&_tick)
+        });
+
+        if has_effects {
+            let mod_tick = mod_mask_u32(_tick.tick_count, crate::math::Powers::_16);
+            if mod_tick == 0 {
+                AFFINE_PARAM_A.index(1).write(i16fx8::from_bits(4 << 8));
+            } else if mod_tick == 2 || mod_tick == 14 {
+                AFFINE_PARAM_A.index(1).write(i16fx8::from_bits(2 << 8));
+            } else if mod_tick == 4 || mod_tick == 12 {
+                AFFINE_PARAM_A.index(1).write(i16fx8::from_bits(1 << 8));
+            } else if mod_tick == 6 || mod_tick == 10 {
+                AFFINE_PARAM_A.index(1).write(-i16fx8::from_bits(2 << 8));
+            } else if mod_tick == 8 {
+                AFFINE_PARAM_A.index(1).write(-i16fx8::from_bits(4 << 8));
+            }
+        }
     }
 
-    pub fn add_effect(effect: Effect) {
+    pub fn add_effect(effect: Effect, delay_ticks: u32) {
         let manager = Effects.assume_init();
-        manager.pending_effects.push_pop(effect);
+        manager.pending_effects.push_pop(AnimationEffect {
+            tick_start: delay_ticks,
+            effect,
+        });
     }
 }
 

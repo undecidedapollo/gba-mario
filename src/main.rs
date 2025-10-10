@@ -5,15 +5,11 @@
 use core::fmt::Write;
 use gba::prelude::*;
 use mario::{
-    assets::{
-        AFFINE2_SCREENBLOCK_START, AssetManager, BACKGROUND_TILES, COIN_TILE, COIN_TILE_IDX_START,
-        TEXT_SCREENBLOCK_START,
-    },
-    effects::{Effect, EffectsManager, TileBounceEffect},
+    assets::{AFFINE2_SCREENBLOCK_START, AssetManager, TEXT_SCREENBLOCK_START},
+    effects::EffectsManager,
     gba_warning,
     keys::KeysManager,
     level_manager::LevelManager,
-    levels::shared::BRICK,
     logger,
     player::PlayerManager,
     screen::ScreenManager,

@@ -58,4 +58,18 @@ impl<T, const N: usize> FixedQueue<T, N> {
         self.start_idx = 0;
         self.next_idx = 0;
     }
+
+    pub fn len(&self) -> usize {
+        if self.start_idx == self.next_idx {
+            if self.items[self.start_idx].is_some() {
+                return N;
+            } else {
+                return 0;
+            }
+        } else if self.start_idx < self.next_idx {
+            return self.next_idx - self.start_idx;
+        } else {
+            return N - (self.start_idx - self.next_idx);
+        }
+    }
 }
