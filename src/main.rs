@@ -2,7 +2,7 @@
 #![no_main]
 #![feature(maybe_uninit_array_assume_init)]
 
-use core::{fmt::Write, ptr::copy_nonoverlapping};
+use core::fmt::Write;
 use gba::prelude::*;
 use mario::{
     assets::{
@@ -81,19 +81,6 @@ extern "C" fn main() -> ! {
     LevelManager::on_start();
     EffectsManager::on_start();
 
-    unsafe {
-        copy_nonoverlapping(
-            BACKGROUND_TILES.0.as_ptr(),
-            CHARBLOCK0_8BPP.index(1).as_usize() as *mut u8,
-            BACKGROUND_TILES.0.len(),
-        );
-        copy_nonoverlapping(
-            COIN_TILE.0.as_ptr(),
-            OBJ_TILES.index(COIN_TILE_IDX_START * 2).as_usize() as *mut u8,
-            COIN_TILE.0.len(),
-        );
-    }
-
     let mut loop_counter: u32 = 0;
 
     loop {
@@ -125,7 +112,7 @@ extern "C" fn main() -> ! {
 
         let after0 = TIMER0_COUNT.read();
         let after1 = TIMER1_COUNT.read();
-        // gba_warning!("TIMER0: {after0}, TIMER1: {after1} TICK: {loop_counter}");
+        gba_warning!("TIMER0: {after0}, TIMER1: {after1} TICK: {loop_counter}");
         TIMER0_CONTROL.write(TimerControl::new());
         TIMER1_CONTROL.write(TimerControl::new());
     }

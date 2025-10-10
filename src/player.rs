@@ -1,10 +1,8 @@
-use core::ptr::copy_nonoverlapping;
-
 use gba::prelude::*;
 
 use crate::{
     assets::{MARIO_TILE, MARIO_TILE_IDX_START},
-    effects::{EffectsManager, TileBounceEffect},
+    effects::{BounceEffectTile, EffectsManager, TileBounceEffect},
     ewram_static, gba_warning,
     level_manager::{LevelManager, is_tile},
     levels::shared::BRICK,
@@ -149,14 +147,6 @@ impl PlayerManager {
         self.player_x = i32fx8::wrapping_from(32);
         self.player_y = i32fx8::wrapping_from(32);
         self.facing_dir = true;
-
-        unsafe {
-            copy_nonoverlapping(
-                MARIO_TILE.0.as_ptr(),
-                OBJ_TILES.index(MARIO_TILE_IDX_START * 2).as_usize() as *mut u8,
-                MARIO_TILE.0.len(),
-            );
-        }
     }
 
     pub fn on_start() {
@@ -252,13 +242,15 @@ impl PlayerManager {
             let row = self.row().saturating_sub(2) as usize;
             let col = (self.col() >> 1) as usize;
             if is_tile(row, col, BRICK) {
-                gba_warning!("Bumped brick at {}, {}", row, col);
-                EffectsManager::add_effect(TileBounceEffect::new(row, col, BRICK).as_effect());
+                EffectsManager::add_effect(
+                    TileBounceEffect::new(row, col, BounceEffectTile::Brick).as_effect(),
+                );
             } else if is_tile(row, col + 1, BRICK) {
-                gba_warning!("Bumped brick at {}, {}", row, col + 1);
-                EffectsManager::add_effect(TileBounceEffect::new(row, col + 1, BRICK).as_effect());
+                EffectsManager::add_effect(
+                    TileBounceEffect::new(row, col + 1, BounceEffectTile::Brick).as_effect(),
+                );
             } else {
-                gba_warning!("No brick at {}, {}", row, col);
+                // gba_warning!("No brick at {}, {}", row, col);
             }
         } else if self.is_vertically_stationary() {
             self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32 + 1);

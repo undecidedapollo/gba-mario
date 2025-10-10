@@ -4,12 +4,17 @@ use gba::{
     Align4,
     fixed::i32fx8,
     include_aligned_bytes,
-    mmio::{BG_PALETTE, OBJ_ATTR_ALL, OBJ_PALETTE, TEXT_SCREENBLOCKS},
+    mmio::{BG_PALETTE, CHARBLOCK0_8BPP, OBJ_ATTR_ALL, OBJ_PALETTE, OBJ_TILES, TEXT_SCREENBLOCKS},
     prelude::{ObjAttr, ObjAttrWriteExt, ObjDisplayStyle},
     video::Color,
 };
 
-use crate::{color::darken_rgb15, ewram_static, static_init::StaticInitSafe};
+use crate::{
+    color::darken_rgb15,
+    ewram_static,
+    levels::shared::{BRICK, Tile},
+    static_init::StaticInitSafe,
+};
 
 pub static SHARED_PALETTE: Align4<[u8; 24]> = include_aligned_bytes!("../asset_out/shared.palette");
 
@@ -21,7 +26,7 @@ pub static MARIO_TILE: Align4<[u8; 2048]> = include_aligned_bytes!("../asset_out
 
 pub const COIN_TILE_IDX_START: usize = 1;
 pub const MARIO_TILE_IDX_START: usize = COIN_TILE_IDX_START + COIN_TILE.0.len() / 64;
-pub const UNUSED_TILE_IDX_START: usize = MARIO_TILE_IDX_START + MARIO_TILE.0.len() / 64;
+pub const BRICK_IDX_START: usize = MARIO_TILE_IDX_START + MARIO_TILE.0.len() / 64;
 // Affine 2 is about the same size per stride as text, if we change affine background size (use something other than AFFINE2 we will need to change this)
 pub const AFFINE2_SCREENBLOCK_START: usize = 16; // 0x0600_8000
 pub const TEXT_SCREENBLOCK_START: usize = 24; // 0x0600_C000
@@ -61,6 +66,31 @@ const COLOR_MAGIC_MAX: Color = Color(0x127c);
 const COLOR_MAGIC_1: Color = darken_rgb15(COLOR_MAGIC_MAX, i32fx8::from_bits(230));
 const COLOR_MAGIC_2: Color = darken_rgb15(COLOR_MAGIC_MAX, i32fx8::from_bits(180));
 const COLOR_MAGIC_3: Color = darken_rgb15(COLOR_MAGIC_MAX, i32fx8::from_bits(130));
+
+unsafe fn copy_tile(tile: Tile, idx: usize) {
+    unsafe {
+        copy_nonoverlapping(
+            CHARBLOCK0_8BPP.index(tile.top_left()).as_ptr() as *const u32,
+            OBJ_TILES.index(idx * 2).as_usize() as *mut u32,
+            16,
+        );
+        copy_nonoverlapping(
+            CHARBLOCK0_8BPP.index(tile.top_right()).as_ptr() as *const u32,
+            OBJ_TILES.index(idx * 2 + 2).as_usize() as *mut u32,
+            16,
+        );
+        copy_nonoverlapping(
+            CHARBLOCK0_8BPP.index(tile.bottom_left()).as_ptr() as *const u32,
+            OBJ_TILES.index(idx * 2 + 4).as_usize() as *mut u32,
+            16,
+        );
+        copy_nonoverlapping(
+            CHARBLOCK0_8BPP.index(tile.bottom_right()).as_ptr() as *const u32,
+            OBJ_TILES.index(idx * 2 + 6).as_usize() as *mut u32,
+            16,
+        );
+    }
+}
 
 impl AssetManager {
     pub const fn new() -> Self {
@@ -125,6 +155,22 @@ impl AssetManager {
                 BG_PALETTE.index(16 * 15).as_usize() as *mut Color,
                 colors.len(),
             );
+            copy_nonoverlapping(
+                BACKGROUND_TILES.0.as_ptr(),
+                CHARBLOCK0_8BPP.index(1).as_usize() as *mut u8,
+                BACKGROUND_TILES.0.len(),
+            );
+            copy_nonoverlapping(
+                COIN_TILE.0.as_ptr(),
+                OBJ_TILES.index(COIN_TILE_IDX_START * 2).as_usize() as *mut u8,
+                COIN_TILE.0.len(),
+            );
+            copy_nonoverlapping(
+                MARIO_TILE.0.as_ptr(),
+                OBJ_TILES.index(MARIO_TILE_IDX_START * 2).as_usize() as *mut u8,
+                MARIO_TILE.0.len(),
+            );
+            copy_tile(BRICK, BRICK_IDX_START);
             // Cga8x8Thick.bitunpack_8bpp(CHARBLOCK1_8BPP.as_region(), 0);
         }
     }

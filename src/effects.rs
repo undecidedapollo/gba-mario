@@ -7,22 +7,40 @@ use core::{
 use gba::prelude::*;
 
 use crate::{
-    assets::UNUSED_TILE_IDX_START,
+    assets::BRICK_IDX_START,
     ewram_static,
     fixed_bag::FixedBag,
     fixed_queue::FixedQueue,
     gba_warning,
     level_manager::{clear_tile, draw_tile},
-    levels::shared::Tile,
+    levels::shared::{BRICK, Tile},
     screen::{ScreenInfo, ScreenManager},
     static_init::StaticInitSafe,
     tick::TickContext,
 };
 
+pub enum BounceEffectTile {
+    Brick,
+}
+
+impl BounceEffectTile {
+    fn obj_tile_id(&self) -> u16 {
+        (match self {
+            BounceEffectTile::Brick => BRICK_IDX_START * 2,
+        }) as u16
+    }
+
+    fn tile(&self) -> Tile {
+        match self {
+            BounceEffectTile::Brick => BRICK,
+        }
+    }
+}
+
 pub struct TileBounceEffect {
     row: usize,
     col: usize,
-    tile: Tile,
+    tile: BounceEffectTile,
     otr: ObjAttr,
 }
 
@@ -54,7 +72,7 @@ pub fn tile_to_screenspace(row: usize, col: usize, screen: &ScreenInfo) -> (i32,
 }
 
 impl TileBounceEffect {
-    pub fn new(row: usize, col: usize, tile: Tile) -> Self {
+    pub fn new(row: usize, col: usize, tile: BounceEffectTile) -> Self {
         TileBounceEffect {
             row,
             col,
@@ -69,34 +87,12 @@ impl TileBounceEffect {
 
     fn tick(&mut self, ctx: AnimationCtx) -> bool {
         if ctx.animation_tick >= 8 {
-            draw_tile(self.row, self.col, self.tile);
+            draw_tile(self.row, self.col, self.tile.tile());
             OBJ_ATTR_ALL.index(1).write(ObjAttr::default());
             return false;
         }
 
         if ctx.animation_tick == 0 {
-            unsafe {
-                copy_nonoverlapping(
-                    CHARBLOCK0_8BPP.index(self.tile.top_left()).as_ptr() as *const u32,
-                    OBJ_TILES.index(UNUSED_TILE_IDX_START * 2).as_usize() as *mut u32,
-                    16,
-                );
-                copy_nonoverlapping(
-                    CHARBLOCK0_8BPP.index(self.tile.top_right()).as_ptr() as *const u32,
-                    OBJ_TILES.index(UNUSED_TILE_IDX_START * 2 + 2).as_usize() as *mut u32,
-                    16,
-                );
-                copy_nonoverlapping(
-                    CHARBLOCK0_8BPP.index(self.tile.bottom_left()).as_ptr() as *const u32,
-                    OBJ_TILES.index(UNUSED_TILE_IDX_START * 2 + 4).as_usize() as *mut u32,
-                    16,
-                );
-                copy_nonoverlapping(
-                    CHARBLOCK0_8BPP.index(self.tile.bottom_right()).as_ptr() as *const u32,
-                    OBJ_TILES.index(UNUSED_TILE_IDX_START * 2 + 6).as_usize() as *mut u32,
-                    16,
-                );
-            }
             let mut otr = ObjAttr::new();
             otr.set_x(32);
             otr.set_y(32);
@@ -109,7 +105,7 @@ impl TileBounceEffect {
             otr.1 = otr.1.with_size(1).with_affine_index(0);
             otr.2 = otr
                 .2
-                .with_tile_id((UNUSED_TILE_IDX_START * 2) as u16)
+                .with_tile_id(self.tile.obj_tile_id())
                 .with_priority(0)
                 .with_palbank(0);
             self.otr = otr;
