@@ -2,7 +2,7 @@ use gba::prelude::*;
 
 use crate::{
     assets::{BRICK_IDX_START, USED_BLOCK_IDX_START},
-    effects::{AnimationCtx, Effect, tile_to_screenspace},
+    effects::{AnimationCtx, Effect, EffectImpl, tile_to_screenspace},
     level_manager::{clear_tile, draw_tile},
     levels::shared::{BRICK, QUESTION_BLOCK_USED, Tile},
     screen::ScreenManager,
@@ -29,16 +29,16 @@ impl BounceEffectTile {
     }
 }
 
-pub struct TileBounceEffect {
+pub struct TileBounce {
     row: usize,
     col: usize,
     tile: BounceEffectTile,
     otr: ObjAttr,
 }
 
-impl TileBounceEffect {
+impl TileBounce {
     pub fn new(row: usize, col: usize, tile: BounceEffectTile) -> Self {
-        TileBounceEffect {
+        TileBounce {
             row,
             col,
             tile,
@@ -49,8 +49,10 @@ impl TileBounceEffect {
     pub fn as_effect(self) -> Effect {
         Effect::TileBounce(self)
     }
+}
 
-    pub fn tick(&mut self, ctx: AnimationCtx) -> bool {
+impl EffectImpl for TileBounce {
+    fn tick(&mut self, ctx: AnimationCtx) -> bool {
         if ctx.animation_tick >= 8 {
             draw_tile(self.row, self.col, self.tile.tile());
             OBJ_ATTR_ALL.index(1).write(ObjAttr::default());
@@ -80,11 +82,7 @@ impl TileBounceEffect {
         return true;
     }
 
-    pub fn is_duplicate(&self, other: &Self) -> bool {
-        self.row == other.row && self.col == other.col
-    }
-
-    pub fn post_tick(&mut self, ctx: AnimationCtx) {
+    fn post_tick(&mut self, ctx: AnimationCtx) {
         let screen = ScreenManager::get_screen_info();
         let (x, base_y) = tile_to_screenspace(self.row, self.col, &screen);
 

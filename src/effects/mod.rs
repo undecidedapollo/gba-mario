@@ -1,9 +1,10 @@
 use core::ops::Shr;
 
+use enum_dispatch::enum_dispatch;
 use gba::prelude::*;
 
 use crate::{
-    effects::{coin_up::CoinUpEffect, points::PointEffect, tile_bounce::TileBounceEffect},
+    effects::{coin_up::CoinUp, points::Points, tile_bounce::TileBounce},
     ewram_static,
     fixed_bag::FixedBag,
     fixed_queue::FixedQueue,
@@ -44,38 +45,17 @@ pub fn tile_to_screenspace(row: usize, col: usize, screen: &ScreenInfo) -> (i32,
 
     (x, y)
 }
-
-pub enum Effect {
-    TileBounce(TileBounceEffect),
-    CoinUp(CoinUpEffect),
-    Points(PointEffect),
+#[enum_dispatch]
+pub trait EffectImpl {
+    fn tick(&mut self, ctx: AnimationCtx) -> bool;
+    fn post_tick(&mut self, ctx: AnimationCtx);
 }
 
-impl Effect {
-    pub fn tick(&mut self, ctx: AnimationCtx) -> bool {
-        match self {
-            Effect::TileBounce(effect) => effect.tick(ctx),
-            Effect::CoinUp(effect) => effect.tick(ctx),
-            Effect::Points(effect) => effect.tick(ctx),
-        }
-    }
-
-    pub fn post_tick(&mut self, ctx: AnimationCtx) {
-        match self {
-            Effect::TileBounce(effect) => effect.post_tick(ctx),
-            Effect::CoinUp(effect) => effect.post_tick(ctx),
-            Effect::Points(effect) => effect.post_tick(ctx),
-        }
-    }
-
-    pub fn is_same_type_and_position(&self, other: &Effect) -> bool {
-        match (self, other) {
-            (Effect::TileBounce(a), Effect::TileBounce(b)) => a.is_duplicate(b),
-            (Effect::CoinUp(a), Effect::CoinUp(b)) => a.is_duplicate(b),
-            (Effect::Points(a), Effect::Points(b)) => a.is_duplicate(b),
-            _ => false,
-        }
-    }
+#[enum_dispatch(EffectImpl)]
+pub enum Effect {
+    TileBounce,
+    CoinUp,
+    Points,
 }
 
 pub struct AnimationCtx {
@@ -110,7 +90,7 @@ impl AnimationEffect {
 
 pub struct EffectsManager {
     active_effects: FixedBag<AnimationEffect, 8>,
-    pending_effects: FixedQueue<AnimationEffect, 4>,
+    pending_effects: FixedQueue<AnimationEffect, 6>,
 }
 
 impl EffectsManager {
@@ -142,7 +122,7 @@ impl EffectsManager {
                 break;
             };
             if effect.tick_start > 0 {
-                gba_warning!("Delaying effect by 1 tick: {}", effect.tick_start);
+                // gba_warning!("Delaying effect by 1 tick: {}", effect.tick_start);
                 manager.pending_effects.push_pop(AnimationEffect {
                     tick_start: effect.tick_start.saturating_sub(1),
                     effect: effect.effect,
@@ -154,16 +134,6 @@ impl EffectsManager {
                 tick_start: _tick.tick_count,
                 effect: effect.effect,
             };
-
-            let is_matching_pos = manager.active_effects.iter().any(|(_idx, active_effect)| {
-                active_effect
-                    .effect
-                    .is_same_type_and_position(&anim_effect.effect)
-            });
-
-            if is_matching_pos {
-                continue;
-            }
 
             if let Err(effect) = manager.active_effects.push(anim_effect) {
                 // No space, put it back

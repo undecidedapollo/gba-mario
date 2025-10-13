@@ -247,7 +247,7 @@ impl LevelManager {
                     LevelItem::Tile { .. }
                     | LevelItem::Pipe { .. }
                     | LevelItem::HoleInFloor { .. } => {
-                        self.stack_of_renders.push(ManagedItem {
+                        let _ = self.stack_of_renders.push(ManagedItem {
                             item,
                             col_start: i as usize,
                         });

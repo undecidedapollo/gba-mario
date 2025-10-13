@@ -2,7 +2,7 @@ use gba::prelude::*;
 
 use crate::{
     assets::POINT_TILE_IDX_START,
-    effects::{AnimationCtx, Effect, tile_to_screenspace},
+    effects::{AnimationCtx, Effect, EffectImpl, tile_to_screenspace},
     screen::ScreenManager,
 };
 
@@ -36,7 +36,7 @@ pub enum ScoreAmount {
     OneUp,
 }
 
-pub struct PointEffect {
+pub struct Points {
     row: usize,
     col: usize,
     amount: ScoreAmount,
@@ -44,9 +44,9 @@ pub struct PointEffect {
     otr_right: ObjAttr,
 }
 
-impl PointEffect {
+impl Points {
     pub fn new(row: usize, col: usize, amount: ScoreAmount) -> Self {
-        PointEffect {
+        Points {
             row,
             col,
             amount,
@@ -87,8 +87,10 @@ impl PointEffect {
             ),
         }
     }
+}
 
-    pub fn tick(&mut self, ctx: AnimationCtx) -> bool {
+impl EffectImpl for Points {
+    fn tick(&mut self, ctx: AnimationCtx) -> bool {
         if ctx.animation_tick >= 16 {
             OBJ_ATTR_ALL.index(3).write(ObjAttr::default());
             OBJ_ATTR_ALL.index(4).write(ObjAttr::default());
@@ -123,11 +125,7 @@ impl PointEffect {
         return true;
     }
 
-    pub fn is_duplicate(&self, _other: &Self) -> bool {
-        false
-    }
-
-    pub fn post_tick(&mut self, ctx: AnimationCtx) {
+    fn post_tick(&mut self, ctx: AnimationCtx) {
         let screen = ScreenManager::get_screen_info();
         let (x, base_y) = tile_to_screenspace(self.row, self.col, &screen);
 

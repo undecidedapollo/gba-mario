@@ -2,19 +2,19 @@ use gba::prelude::*;
 
 use crate::{
     assets::COIN_TILE_IDX_START,
-    effects::{AnimationCtx, Effect, tile_to_screenspace},
+    effects::{AnimationCtx, Effect, EffectImpl, tile_to_screenspace},
     screen::ScreenManager,
 };
 
-pub struct CoinUpEffect {
+pub struct CoinUp {
     row: usize,
     col: usize,
     otr: ObjAttr,
 }
 
-impl CoinUpEffect {
+impl CoinUp {
     pub fn new(row: usize, col: usize) -> Self {
-        CoinUpEffect {
+        CoinUp {
             row,
             col,
             otr: ObjAttr::default(),
@@ -24,8 +24,10 @@ impl CoinUpEffect {
     pub fn as_effect(self) -> Effect {
         Effect::CoinUp(self)
     }
+}
 
-    pub fn tick(&mut self, ctx: AnimationCtx) -> bool {
+impl EffectImpl for CoinUp {
+    fn tick(&mut self, ctx: AnimationCtx) -> bool {
         if ctx.animation_tick >= 16 {
             OBJ_ATTR_ALL.index(2).write(ObjAttr::default());
             return false;
@@ -53,11 +55,7 @@ impl CoinUpEffect {
         return true;
     }
 
-    pub fn is_duplicate(&self, other: &Self) -> bool {
-        self.row == other.row && self.col == other.col
-    }
-
-    pub fn post_tick(&mut self, ctx: AnimationCtx) {
+    fn post_tick(&mut self, ctx: AnimationCtx) {
         let screen = ScreenManager::get_screen_info();
         let (x, base_y) = tile_to_screenspace(self.row, self.col, &screen);
 

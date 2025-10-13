@@ -35,24 +35,24 @@ const fn get_tile_idx(row: usize, col: usize) -> usize {
     (row * 2 * BACKGROUND_TILE_COLS_PER_ROW + col * 2) + 1
 }
 
-pub static BRICK: Tile = Tile::new(get_tile_idx(0, 0));
-pub static QUESTION_BLOCK_UNUSED: Tile = Tile::new(get_tile_idx(0, 2));
-pub static QUESTION_BLOCK_USED: Tile = Tile::new(get_tile_idx(0, 3));
-pub static ROCK: Tile = Tile::new(get_tile_idx(0, 1));
-pub static PIPE_TOP_LEFT: Tile = Tile::new(get_tile_idx(0, 6));
-pub static PIPE_TOP_RIGHT: Tile = Tile::new(get_tile_idx(0, 7));
-pub static PIPE_BODY_LEFT: Tile = Tile::new(get_tile_idx(1, 6));
-pub static PIPE_BODY_RIGHT: Tile = Tile::new(get_tile_idx(1, 7));
+pub const BRICK: Tile = Tile::new(get_tile_idx(0, 0));
+pub const QUESTION_BLOCK_UNUSED: Tile = Tile::new(get_tile_idx(0, 2));
+pub const QUESTION_BLOCK_USED: Tile = Tile::new(get_tile_idx(0, 3));
+pub const ROCK: Tile = Tile::new(get_tile_idx(0, 1));
+pub const PIPE_TOP_LEFT: Tile = Tile::new(get_tile_idx(0, 6));
+pub const PIPE_TOP_RIGHT: Tile = Tile::new(get_tile_idx(0, 7));
+pub const PIPE_BODY_LEFT: Tile = Tile::new(get_tile_idx(1, 6));
+pub const PIPE_BODY_RIGHT: Tile = Tile::new(get_tile_idx(1, 7));
 
-pub static BUSH_LEFT: Tile = Tile::new(get_tile_idx(1, 2));
-pub static BUSH_MIDDLE: Tile = Tile::new(get_tile_idx(1, 3));
-pub static BUSH_RIGHT: Tile = Tile::new(get_tile_idx(3, 7));
+pub const BUSH_LEFT: Tile = Tile::new(get_tile_idx(1, 2));
+pub const BUSH_MIDDLE: Tile = Tile::new(get_tile_idx(1, 3));
+pub const BUSH_RIGHT: Tile = Tile::new(get_tile_idx(3, 7));
 
-pub static MOUNTAIL_TOP: Tile = Tile::new(get_tile_idx(3, 3));
-pub static MOUNTAIL_SLOPE_UP: Tile = Tile::new(get_tile_idx(4, 3));
-pub static MOUNTAIL_BUTTONS: Tile = Tile::new(get_tile_idx(4, 4));
-pub static MOUNTAIL_EMPTY: Tile = Tile::new(get_tile_idx(4, 5));
-pub static MOUNTAIL_SLOPE_DOWN: Tile = Tile::new(get_tile_idx(4, 7));
+pub const MOUNTAIL_TOP: Tile = Tile::new(get_tile_idx(3, 3));
+pub const MOUNTAIL_SLOPE_UP: Tile = Tile::new(get_tile_idx(4, 3));
+pub const MOUNTAIL_BUTTONS: Tile = Tile::new(get_tile_idx(4, 4));
+pub const MOUNTAIL_EMPTY: Tile = Tile::new(get_tile_idx(4, 5));
+pub const MOUNTAIL_SLOPE_DOWN: Tile = Tile::new(get_tile_idx(4, 7));
 
 pub struct Level {
     pub floor: LevelFloor,
@@ -74,7 +74,7 @@ const fn from_floor(up_from_floor: usize) -> usize {
     (FLOOR - 1).saturating_sub(up_from_floor)
 }
 
-struct MultilayerSprint<const W: usize, const H: usize> {
+struct MultilayerSprite<const W: usize, const H: usize> {
     tiles: [[Tile; W]; H],
 }
 

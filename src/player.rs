@@ -4,9 +4,9 @@ use crate::{
     assets::{MARIO_TILE, MARIO_TILE_IDX_START},
     effects::{
         EffectsManager,
-        coin_up::CoinUpEffect,
-        points::{PointEffect, ScoreAmount},
-        tile_bounce::{BounceEffectTile, TileBounceEffect},
+        coin_up::CoinUp,
+        points::{Points, ScoreAmount},
+        tile_bounce::{BounceEffectTile, TileBounce},
     },
     ewram_static, gba_error, gba_warning,
     level_manager::{LevelManager, is_tile},
@@ -97,6 +97,11 @@ impl PlayerManager {
 
     fn col(&self) -> u16 {
         (self.player_x.to_bits() >> (8 + 3)) as u16
+    }
+
+    fn col_middle(&self) -> u16 {
+        // Add 8 pixels to be in the middle of the player
+        ((self.player_x.add(i32fx8::wrapping_from(8))).to_bits() >> (8 + 3)) as u16
     }
 
     fn set_tile(&mut self, tile: MarioAnimationTileIdx) {
@@ -245,36 +250,29 @@ impl PlayerManager {
             self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32);
             self.vel_y = i32fx8::wrapping_from(0);
             let row = self.row().saturating_sub(2) as usize;
-            let col = (self.col() >> 1) as usize;
+            let col = (self.col_middle() >> 1) as usize;
 
-            let pos = [(row, col), (row, col + 1)];
-            for (r, c) in pos {
-                let Some(tile) = is_tile(r, c, [BRICK, QUESTION_BLOCK_UNUSED, QUESTION_BLOCK_USED])
-                else {
-                    continue;
-                };
-
+            if let Some(tile) = is_tile(
+                row,
+                col,
+                [BRICK, QUESTION_BLOCK_UNUSED, QUESTION_BLOCK_USED],
+            ) {
                 if tile == BRICK {
                     EffectsManager::add_effect(
-                        TileBounceEffect::new(r, c, BounceEffectTile::Brick).as_effect(),
+                        TileBounce::new(row, col, BounceEffectTile::Brick).as_effect(),
                         0,
                     );
                 } else if tile == QUESTION_BLOCK_UNUSED {
                     EffectsManager::add_effect(
-                        TileBounceEffect::new(r, c, BounceEffectTile::UsedBlock).as_effect(),
+                        TileBounce::new(row, col, BounceEffectTile::UsedBlock).as_effect(),
                         0,
                     );
-                    EffectsManager::add_effect(CoinUpEffect::new(r - 1, c).as_effect(), 0);
-                    EffectsManager::add_effect(
-                        PointEffect::new(r - 1, c, ScoreAmount::OneHundred).as_effect(),
-                        16,
-                    );
+                    EffectsManager::add_effect(CoinUp::new(row - 1, col).as_effect(), 0);
                 } else if tile == QUESTION_BLOCK_USED {
                     // Already used block, do nothing
                 } else {
                     gba_error!("Unhandled effect for tile that was checked");
                 }
-                break;
             }
         } else if self.is_vertically_stationary() {
             self.player_y = i32fx8::wrapping_from((self.row() << 3) as i32 + 1);
