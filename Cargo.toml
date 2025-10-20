@@ -25,11 +25,11 @@ panic = "abort"
 debug = true
 opt-level = 3
 
-[profile.release-thin]
-inherits = "release"
-lto = "thin"       # or "thin" for faster compile, "fat" for max optimization
+# [profile.release-thin]
+# inherits = "release"
+# lto = "thin"       # or "thin" for faster compile, "fat" for max optimization
 
-[profile.release-fat]
-inherits = "release"
-lto = "fat"       # or "thin" for faster compile, "fat" for max optimization
-codegen-units = 1 # lets LLVM see the whole crate at once
+# [profile.release-fat]
+# inherits = "release"
+# lto = "fat"       # or "thin" for faster compile, "fat" for max optimization
+# codegen-units = 1 # lets LLVM see the whole crate at once

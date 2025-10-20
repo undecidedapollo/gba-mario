@@ -3,6 +3,7 @@ use crate::assets::BACKGROUND_TILE_COLS_PER_ROW;
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum LevelFloor {
     Solid { tile: Tile, row: usize },
+    None,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -135,5 +136,6 @@ pub const LEVEL_1_1: Level = Level {
         tile: ROCK,
         row: FLOOR,
     },
+    // floor: LevelFloor::None,
     data: &LEVEL_1_1_DATA,
 };

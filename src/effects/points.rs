@@ -59,7 +59,7 @@ impl Points {
         Effect::Points(self)
     }
 
-    pub fn get_tiles(&self) -> (PointsAnimationTileIdx, PointsAnimationTileIdx) {
+    fn get_tiles(&self) -> (PointsAnimationTileIdx, PointsAnimationTileIdx) {
         match self.amount {
             ScoreAmount::OneHundred => (
                 PointsAnimationTileIdx::Ten,

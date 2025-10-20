@@ -14,7 +14,6 @@ pub mod level_manager;
 pub mod levels;
 pub mod logger;
 pub mod math;
-pub mod obj;
 pub mod player;
 pub mod rng;
 pub mod screen;

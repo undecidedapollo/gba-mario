@@ -268,6 +268,10 @@ impl PlayerManager {
                         0,
                     );
                     EffectsManager::add_effect(CoinUp::new(row - 1, col).as_effect(), 0);
+                    EffectsManager::add_effect(
+                        Points::new(row - 2, col, ScoreAmount::OneHundred).as_effect(),
+                        16,
+                    );
                 } else if tile == QUESTION_BLOCK_USED {
                     // Already used block, do nothing
                 } else {

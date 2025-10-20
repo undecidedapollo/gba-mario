@@ -164,7 +164,8 @@ impl LevelManager {
             gba_warning!("Rendering column {} actual {}", i, screenblock_col);
 
             let floor_bottom_for_col = match self.current_level.floor {
-                LevelFloor::Solid { tile: _, row } => row << 1,
+                LevelFloor::Solid { row, .. } => row << 1,
+                LevelFloor::None => 32,
             };
 
             let background_col = i % 48;
@@ -255,7 +256,7 @@ impl LevelManager {
                 };
             }
 
-            for (idx, managed) in self.stack_of_renders.iter_mut_opt() {
+            for (_idx, managed) in self.stack_of_renders.iter_mut_opt() {
                 let Some(inner) = managed else {
                     continue;
                 };

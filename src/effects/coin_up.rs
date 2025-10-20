@@ -55,6 +55,7 @@ impl EffectImpl for CoinUp {
         return true;
     }
 
+    // Rotation is handled in affine matrix effect by EffectManager, we just move the object here
     fn post_tick(&mut self, ctx: AnimationCtx) {
         let screen = ScreenManager::get_screen_info();
         let (x, base_y) = tile_to_screenspace(self.row, self.col, &screen);

@@ -50,7 +50,7 @@ impl ScreenManager {
         ScreenInfo {
             affn_x: screen.affn_x,
             affn_y: screen.affn_y,
-            onscreen_col_start: (screen.affn_x.div(i32fx8::wrapping_from(8)).to_bits() >> 8) as u16,
+            onscreen_col_start: (screen.affn_x.to_bits() >> 11) as u16, // Divide by 8 (shift 3) + remove decimals
         }
     }
 

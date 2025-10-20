@@ -98,17 +98,33 @@ extern "C" fn main() -> ! {
         TIMER1_CONTROL.write(TimerControl::new().with_enabled(true).with_cascade(true));
 
         LevelManager::tick(tick_ctx);
+        let after_lvlmgr: u16 = TIMER0_COUNT.read();
         PlayerManager::tick(tick_ctx);
+        let after_pmgr: u16 = TIMER0_COUNT.read();
         TopBarManager::tick(tick_ctx);
+        let after_tbmgr: u16 = TIMER0_COUNT.read();
         EffectsManager::tick(tick_ctx);
+        let after_effmgr: u16 = TIMER0_COUNT.read();
 
         ScreenManager::post_tick();
+        let after_scrmgr: u16 = TIMER0_COUNT.read();
         AssetManager::post_tick();
+        let after_astmgr: u16 = TIMER0_COUNT.read();
         EffectsManager::post_tick(tick_ctx);
+        let after_effmgr_post: u16 = TIMER0_COUNT.read();
 
-        let after0 = TIMER0_COUNT.read();
-        let after1 = TIMER1_COUNT.read();
-        gba_warning!("TIMER0: {after0}, TIMER1: {after1} TICK: {loop_counter}");
+        // let after0 = TIMER0_COUNT.read();
+        // let after1 = TIMER1_COUNT.read();
+        gba_warning!(
+            "LvlMgr={:4} PMgr={:4} TBMgr={:4} EffMgr={:4} ScrMgr={:4} AstMgr={:4} EffMgrPost={:4}",
+            after_lvlmgr,
+            after_pmgr - after_lvlmgr,
+            after_tbmgr - after_pmgr,
+            after_effmgr - after_tbmgr,
+            after_scrmgr - after_effmgr,
+            after_astmgr - after_scrmgr,
+            after_effmgr_post - after_astmgr,
+        );
         TIMER0_CONTROL.write(TimerControl::new());
         TIMER1_CONTROL.write(TimerControl::new());
     }
