@@ -63,8 +63,6 @@ pub struct TextHandle {
 
 impl TextHandle {
     pub fn clear(&mut self) {
-        gba_warning!("Clearing texthandle");
-
         let Some(menu) = TEXT_SCREENBLOCKS.get_frame(self.screenblock_idx) else {
             return;
         };
