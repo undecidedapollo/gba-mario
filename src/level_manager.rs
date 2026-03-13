@@ -27,6 +27,8 @@ pub struct LevelManager {
     stack_of_renders: FixedBag<ManagedItem, 8>,
     stand_matrix: FixedQueue<u32, 32>,
     queue_start: usize,
+    top_row: [u8; 32],
+    background_col: usize,
 }
 
 pub fn draw_tile(row: usize, col: usize, tile: Tile) {
@@ -106,6 +108,8 @@ impl LevelManager {
             stack_of_renders: FixedBag::new(),
             stand_matrix: FixedQueue::new(),
             queue_start: 0,
+            top_row: [35; 32],
+            background_col: 0,
         }
     }
 
@@ -153,22 +157,26 @@ impl LevelManager {
 
         // Don't handle column operations on odd frames
         if self.rendered_col >= render_end || mod_mask_u32(start as u32, Powers::_2) != 0 {
+            self.reap_one_column(reap);
             return;
         }
 
         for mut i in (self.rendered_col..render_end).step_by(2) {
             i = i >> 1;
             let mut standable_mask: u32 = 0;
+            let mut top_drawn_row: usize = 35;
             let screenblock_col: usize = mod_mask_u32(i as u32, Powers::_32) as usize;
-
-            gba_warning!("Rendering column {} actual {}", i, screenblock_col);
 
             let floor_bottom_for_col = match self.current_level.floor {
                 LevelFloor::Solid { row, .. } => row << 1,
                 LevelFloor::None => 32,
             };
 
-            let background_col = i % 48;
+            let background_col = self.background_col;
+            self.background_col += 1;
+            if self.background_col >= 48 {
+                self.background_col = 0;
+            }
 
             let floor_bg = floor_bottom_for_col >> 1;
 
@@ -180,59 +188,76 @@ impl LevelManager {
 
             match background_col {
                 0 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_UP);
                 }
                 1 => {
+                    top_drawn_row = from_floor(1);
                     draw_tile(from_floor(1), screenblock_col, MOUNTAIL_SLOPE_UP);
                     draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
                 }
                 2 => {
+                    top_drawn_row = from_floor(2);
                     draw_tile(from_floor(2), screenblock_col, MOUNTAIL_TOP);
                     draw_tile(from_floor(1), screenblock_col, MOUNTAIL_BUTTONS);
                     draw_tile(from_floor(0), screenblock_col, MOUNTAIL_EMPTY);
                 }
                 3 => {
+                    top_drawn_row = from_floor(1);
                     draw_tile(from_floor(1), screenblock_col, MOUNTAIL_SLOPE_DOWN);
                     draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
                 }
                 4 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_DOWN);
                 }
                 11 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
                 }
                 12..=14 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
                 }
                 15 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
                 }
                 16 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_UP);
                 }
                 17 => {
+                    top_drawn_row = from_floor(1);
                     draw_tile(from_floor(1), screenblock_col, MOUNTAIL_TOP);
                     draw_tile(from_floor(0), screenblock_col, MOUNTAIL_BUTTONS);
                 }
                 18 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, MOUNTAIL_SLOPE_DOWN);
                 }
                 23 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
                 }
                 24 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
                 }
                 25 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
                 }
                 41 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_LEFT);
                 }
                 42 | 43 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_MIDDLE);
                 }
                 44 => {
+                    top_drawn_row = from_floor(0);
                     draw_tile(from_floor(0), screenblock_col, BUSH_RIGHT);
                 }
                 _ => {}
@@ -268,6 +293,7 @@ impl LevelManager {
                     }
                     LevelItem::Pipe { row } => {
                         let row = row << 1;
+                        top_drawn_row = top_drawn_row.min(row);
                         standable_mask |= 0b11 << row;
                         if i as usize == inner.col_start {
                             draw_tile(row, screenblock_col, PIPE_TOP_LEFT);
@@ -294,6 +320,7 @@ impl LevelManager {
                         let row = row << 1;
                         let col_in_item = i as usize - inner.col_start;
                         if col_in_item < len {
+                            top_drawn_row = top_drawn_row.min(row);
                             standable_mask |= 0b11 << row;
                             draw_tile(row, screenblock_col, tile);
                         } else {
@@ -316,12 +343,13 @@ impl LevelManager {
                 && let LevelFloor::Solid { tile, row } = self.current_level.floor
             {
                 let row = row << 1;
+                top_drawn_row = top_drawn_row.min(row);
                 standable_mask |= 0b1111 << row;
                 draw_tile(row, screenblock_col, tile);
                 draw_tile(row + 2, screenblock_col, tile);
             }
 
-            // gba_warning!("Standable mask for col: {:032b}", standable_mask);
+            self.top_row[screenblock_col] = top_drawn_row as u8;
             // Push twice to account for 2-column tiles
             if self.stand_matrix.push_pop(standable_mask).is_some() {
                 self.queue_start += 1;
@@ -335,19 +363,24 @@ impl LevelManager {
             }
         }
         self.rendered_col = render_end;
-        for mut i in self.reaped_col..reap {
-            i = i >> 1;
-            let screenblock_col = mod_mask_u32(i as u32, Powers::_32) as usize;
-            // gba_warning!("Reaping column {} actual {}", i, screenblock_col);
-            for i in 0..=34 {
-                AFFINE2_SCREENBLOCKS
-                    .get_frame(16)
-                    .unwrap()
-                    .index(screenblock_col, i)
-                    .write(u8x2::default().with_high(0).with_low(0));
-            }
+    }
+
+    fn reap_one_column(&mut self, reap: u16) {
+        if self.reaped_col >= reap {
+            return;
         }
-        self.reaped_col = reap;
+        let i = self.reaped_col >> 1;
+        let screenblock_col = mod_mask_u32(i as u32, Powers::_32) as usize;
+        let start_row = self.top_row[screenblock_col] as usize;
+        for row in start_row..=34 {
+            AFFINE2_SCREENBLOCKS
+                .get_frame(16)
+                .unwrap()
+                .index(screenblock_col, row)
+                .write(u8x2::default().with_high(0).with_low(0));
+        }
+        self.top_row[screenblock_col] = 35;
+        self.reaped_col += 2;
     }
 
     pub fn tick(_tick: TickContext) {
