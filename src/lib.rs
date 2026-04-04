@@ -13,6 +13,7 @@ pub mod keys;
 pub mod level_manager;
 pub mod levels;
 pub mod logger;
+pub mod memory_stats;
 pub mod math;
 pub mod player;
 pub mod rng;

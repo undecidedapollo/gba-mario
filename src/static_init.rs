@@ -84,3 +84,21 @@ macro_rules! ewram_static {
         };
     };
 }
+
+/// Place a `StaticCell` in IWRAM (32 KiB, 1-cycle 32-bit access).
+///
+/// Prefer this for hot, small, frequently-mutated state (per-frame managers,
+/// player state, RNG, etc.). Reserve `ewram_static!` for large buffers that
+/// won't fit in IWRAM's 32 KiB budget.
+#[macro_export]
+macro_rules! iwram_static {
+    ($vis:vis $name:ident: $ty:ty = $init:expr) => {
+        #[allow(non_upper_case_globals)]
+        $vis static $name: $crate::static_init::StaticCell<$ty> = {
+            #[unsafe(link_section = ".iwram")]
+            static mut STORAGE: $ty = $init;
+
+            $crate::static_init::StaticCell::new( core::ptr::addr_of_mut!(STORAGE) )
+        };
+    };
+}

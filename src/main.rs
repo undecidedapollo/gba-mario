@@ -10,7 +10,7 @@ use mario::{
     gba_warning,
     keys::KeysManager,
     level_manager::LevelManager,
-    logger,
+    logger, memory_stats,
     player::PlayerManager,
     screen::ScreenManager,
     tick::TickContext,
@@ -78,6 +78,8 @@ extern "C" fn main() -> ! {
     EffectsManager::on_start();
 
     let mut loop_counter: u32 = 0;
+
+    memory_stats::log_report();
 
     loop {
         VBlankIntrWait();

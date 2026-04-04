@@ -59,6 +59,23 @@ SECTIONS {
   __ewram_word_copy_count = (__ewram_end - __ewram_start) / 4;
   __bss_word_clear_count = (__bss_end - __bss_start) / 4;
 
+  /* ---- Memory usage reporting symbols ---- */
+  /* Region capacities (match the MEMORY block above) */
+  __ewram_capacity = 256K;
+  __iwram_capacity = 32K;
+
+  /* Bytes actually consumed (data + bss for iwram; .ewram section for ewram) */
+  __ewram_used = __ewram_end - __ewram_start;
+  __iwram_used = (__iwram_end - __iwram_start) + (__bss_end - __bss_start);
+
+  __ewram_free = __ewram_capacity - __ewram_used;
+  __iwram_free = __iwram_capacity - __iwram_used;
+
+  /* Fail the link if we overflow either region (LLD also checks MEMORY,
+     but these give clearer error messages). */
+  ASSERT(__ewram_used <= __ewram_capacity, "EWRAM overflow")
+  ASSERT(__iwram_used <= __iwram_capacity, "IWRAM overflow")
+
   /* rust-lld demands we keep the `section header string table` */
   .shstrtab        0 : { *(.shstrtab) }
 

@@ -5,7 +5,10 @@ target = "thumbv4t-none-eabi"
 build-std = ["core", "alloc"]
 
 [target.thumbv4t-none-eabi]
-rustflags = ["-Clink-arg=-Tlinker_scripts/mono_boot.ld"]
+rustflags = [
+  "-Clink-arg=-Tlinker_scripts/mono_boot.ld",
+  "-Clink-arg=-Map=target/mario.map",
+]
 runner = "/Applications/mGBA.app/Contents/MacOS/mGBA"
 
 [alias]
